@@ -117,18 +117,29 @@ def is_file_cache_enabled(*, runtime: RuntimeContext | None = None) -> bool:
     return resolve_runtime_context(runtime).cache_enabled
 
 
-def read_file_text(filepath: str, *, runtime: RuntimeContext | None = None) -> str | None:
-    """Read a file as text, with optional caching."""
-    return resolve_runtime_context(runtime).file_text_cache.read(filepath)
+def read_file_text(
+    filepath: str,
+    *,
+    raw: bool = False,
+    runtime: RuntimeContext | None = None,
+) -> str | None:
+    """Read a file as text, with optional caching.
+
+    By default returns the file's *source view* (for ``.vue`` files: only the
+    script blocks, line positions preserved). Pass ``raw=True`` for the exact
+    on-disk text, e.g. when showing a file to a reviewer or rewriting it.
+    """
+    return resolve_runtime_context(runtime).file_text_cache.read(filepath, raw=raw)
 
 
 def read_file_text_result(
     filepath: str,
     *,
+    raw: bool = False,
     runtime: RuntimeContext | None = None,
 ) -> FileTextReadResult:
     """Read a file as text and include read-status metadata."""
-    return resolve_runtime_context(runtime).file_text_cache.read_result(filepath)
+    return resolve_runtime_context(runtime).file_text_cache.read_result(filepath, raw=raw)
 
 
 def clear_source_file_cache_for_tests(*, runtime: RuntimeContext | None = None) -> None:

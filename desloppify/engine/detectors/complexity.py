@@ -7,8 +7,9 @@ import logging
 import re
 from pathlib import Path
 
-from desloppify.base.output.fallbacks import log_best_effort_failure
 from desloppify.base.discovery.file_paths import resolve_scan_file
+from desloppify.base.discovery.source import read_file_text
+from desloppify.base.output.fallbacks import log_best_effort_failure
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +23,9 @@ def detect_complexity(
     for filepath in files:
         try:
             p = resolve_scan_file(filepath, scan_root=path)
-            content = p.read_text(encoding="utf-8")
+            content = read_file_text(str(p))
+            if content is None:
+                raise OSError("unreadable")
             lines = content.splitlines()
             loc = len(lines)
             if loc < min_loc:

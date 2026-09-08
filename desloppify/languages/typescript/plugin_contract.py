@@ -6,7 +6,9 @@ both the language config surface and command wiring.
 
 from __future__ import annotations
 
-TS_EXTENSIONS = [".ts", ".tsx"]
+# Vue single-file components are analysed through their script blocks (see
+# desloppify.base.source_views); templates are only visible to reviewers.
+TS_EXTENSIONS = [".ts", ".tsx", ".vue"]
 TS_EXCLUSIONS = ["node_modules", ".d.ts"]
 TS_DEFAULT_SRC = "src"
 TS_ENTRY_PATTERNS = [

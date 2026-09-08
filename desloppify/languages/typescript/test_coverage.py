@@ -7,8 +7,8 @@ import os
 import re
 from pathlib import Path
 
-from desloppify.base.output.fallbacks import log_best_effort_failure
 from desloppify.base.discovery.paths import get_project_root, get_src_path
+from desloppify.base.output.fallbacks import log_best_effort_failure
 from desloppify.base.text_utils import strip_c_style_comments
 
 TS_IMPORT_RE = re.compile(
@@ -81,6 +81,10 @@ def _relative_if_under_root(path_str: str) -> str:
 def has_testable_logic(filepath: str, content: str) -> bool:
     """Return True if a TypeScript file has runtime logic worth testing."""
     if filepath.endswith(".d.ts"):
+        return False
+    # Vue single-file components are exercised through component/e2e tests,
+    # not one unit test per file; their logic should live in composables/utils.
+    if filepath.endswith(".vue"):
         return False
 
     in_block_comment = False

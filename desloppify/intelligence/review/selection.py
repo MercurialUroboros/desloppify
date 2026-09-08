@@ -11,7 +11,6 @@ from pathlib import Path
 from typing import Any
 
 from desloppify.base.discovery.file_paths import rel
-
 from desloppify.base.discovery.source import read_file_text
 from desloppify.engine.policy.zones import (
     REVIEW_SELECTION_EXCLUDED_ZONES,
@@ -129,7 +128,7 @@ def _compute_review_priority(filepath: str, lang, state: dict) -> int:
     score = 0
     rpath = rel(filepath)
 
-    content = read_file_text(abs_path(filepath))
+    content = read_file_text(abs_path(filepath), raw=True)
     loc = len(content.splitlines()) if content is not None else 0
 
     # Skip tiny files — not enough to review

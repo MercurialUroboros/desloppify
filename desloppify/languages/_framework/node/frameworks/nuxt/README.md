@@ -20,5 +20,7 @@ dependency, `nuxt.config.*`, or a `nuxt` script in the nearest `package.json`.
 
 - A custom `srcDir` (for example `src/`) or `imports.dirs` overrides.
 - Scanner rules (the Next.js spec has ~20; the same `ScannerRule` mechanism applies).
-- `.vue` single-file components are still not parsed by the TypeScript detectors; only their
-  static imports feed the dependency graph.
+- Template analysis. `.vue` files are TypeScript sources through their *script view*
+  (`desloppify.base.source_views`): the TypeScript detectors, complexity signals, duplicate
+  detection and tree-sitter cohesion see the `<script>`/`<script setup>` blocks with original
+  line numbers; reviewers see the whole file. `<template>` blocks are not yet analysed.

@@ -8,6 +8,7 @@ import re
 from pathlib import Path
 
 from desloppify.base.discovery.paths import get_project_root
+from desloppify.base.discovery.source import read_file_text
 from desloppify.engine.detectors.base import FunctionInfo
 
 logger = logging.getLogger(__name__)
@@ -129,10 +130,9 @@ def _extract_signature(lines: list[str], start_line: int, end_line: int) -> str:
 def extract_ts_functions(filepath: str) -> list[FunctionInfo]:
     """Extract function/component bodies from a TS/TSX file."""
     p = Path(filepath) if Path(filepath).is_absolute() else get_project_root() / filepath
-    try:
-        content = p.read_text()
-    except (OSError, UnicodeDecodeError) as exc:
-        logger.debug("Skipping unreadable TS file %s in function extraction: %s", filepath, exc)
+    content = read_file_text(str(p))
+    if content is None:
+        logger.debug("Skipping unreadable TS file %s in function extraction", filepath)
         return []
 
     lines = content.splitlines()

@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 from typing import TYPE_CHECKING
 
+from desloppify.base.discovery.source import read_file_text
 from desloppify.base.runtime_state import resolve_runtime_context
 
 if TYPE_CHECKING:
@@ -38,10 +38,12 @@ class ParseTreeCache:
         if self._enabled and key in self._trees:
             return self._trees[key]
 
-        try:
-            source = Path(filepath).read_bytes()
-        except (OSError, UnicodeDecodeError):
+        # Read through the shared text cache so Vue SFCs are parsed from their
+        # script view (template blanked, line numbers intact).
+        text = read_file_text(filepath)
+        if text is None:
             return None
+        source = text.encode("utf-8")
 
         tree = parser.parse(source)
         if self._enabled:

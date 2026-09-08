@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import functools
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
@@ -22,14 +23,14 @@ from desloppify.intelligence.review._context.patterns import (
     NAME_PREFIX_RE,
     default_review_module_patterns,
 )
+from desloppify.intelligence.review.context_builder import (
+    ReviewContextBuildServices,
+    build_review_context_inner,
+)
 from desloppify.intelligence.review.context_signals.ai import gather_ai_debt_signals
 from desloppify.intelligence.review.context_signals.auth import gather_auth_context
 from desloppify.intelligence.review.context_signals.migration import (
     classify_error_strategy,
-)
-from desloppify.intelligence.review.context_builder import (
-    ReviewContextBuildServices,
-    build_review_context_inner,
 )
 
 # ── Shared helpers ────────────────────────────────────────────────
@@ -42,7 +43,7 @@ def abs_path(filepath: str) -> str:
 
 def file_excerpt(filepath: str, max_lines: int = 30) -> str | None:
     """Read first *max_lines* of a file, returning the text or None."""
-    content = read_file_text(abs_path(filepath))
+    content = read_file_text(abs_path(filepath), raw=True)
     if content is None:
         return None
     lines = content.splitlines(keepends=True)
@@ -105,7 +106,7 @@ def build_review_context(
             state,
             ctx,
             ReviewContextBuildServices(
-                read_file_text=read_file_text,
+                read_file_text=functools.partial(read_file_text, raw=True),
                 abs_path=abs_path,
                 rel_path=rel,
                 importer_count=importer_count,

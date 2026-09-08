@@ -6,6 +6,7 @@ import logging
 from pathlib import Path
 
 from desloppify.base.discovery.file_paths import resolve_scan_file
+from desloppify.base.discovery.source import read_file_text
 from desloppify.engine.policy.zones import FileZoneMap
 
 from .filters import _is_test_file, _should_scan_file, _should_skip_line
@@ -34,7 +35,9 @@ def detect_security_issues(
 
         try:
             resolved_path = resolve_scan_file(filepath, scan_root=resolved_scan_root)
-            content = resolved_path.read_text(errors="replace")
+            content = read_file_text(str(resolved_path))
+            if content is None:
+                raise OSError("unreadable")
         except OSError as exc:
             logger.debug(
                 "Skipping unreadable file in security detector: %s (%s)", filepath, exc

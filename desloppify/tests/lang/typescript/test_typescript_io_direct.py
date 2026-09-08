@@ -12,17 +12,26 @@ def test_typescript_io_helpers_filter_and_resolve_paths(monkeypatch, tmp_path: P
     assert io_mod.should_skip_typescript_source("node_modules/pkg/index.ts") is True
     assert io_mod.should_skip_typescript_source("src/app.tsx") is False
 
-    monkeypatch.setattr(
-        io_mod,
-        "find_ts_and_tsx_files",
-        lambda _path: [
+    seen_extensions: list[list[str]] = []
+
+    def fake_find(_path, extensions):
+        seen_extensions.append(list(extensions))
+        return [
             "src/app.ts",
             "src/widget.tsx",
+            "src/components/UserCard.vue",
             "src/types.d.ts",
             "node_modules/pkg/index.ts",
-        ],
-    )
-    assert io_mod.iter_typescript_sources(tmp_path) == ["src/app.ts", "src/widget.tsx"]
+        ]
+
+    monkeypatch.setattr(io_mod, "find_source_files", fake_find)
+    assert io_mod.iter_typescript_sources(tmp_path) == [
+        "src/app.ts",
+        "src/widget.tsx",
+        "src/components/UserCard.vue",
+    ]
+    # Vue single-file components are TypeScript sources (script view).
+    assert seen_extensions == [[".ts", ".tsx", ".vue"]]
 
     monkeypatch.setattr(io_mod, "get_project_root", lambda: tmp_path)
     relative = io_mod.resolve_typescript_source("src/app.ts")

@@ -189,7 +189,7 @@ def _build_file_requests(files: list[str], lang: object, state: dict) -> list[di
     """Build per-file review request dicts."""
     file_requests = []
     for filepath in files:
-        content = read_file_text(abs_path(filepath))
+        content = read_file_text(abs_path(filepath), raw=True)
         if content is None:
             continue
 

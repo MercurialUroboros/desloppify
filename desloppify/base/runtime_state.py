@@ -7,6 +7,8 @@ from contextvars import ContextVar
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from desloppify.base.source_views import has_source_view, source_view
+
 
 @dataclass(frozen=True)
 class FileTextReadResult:
@@ -21,24 +23,44 @@ class FileTextReadResult:
 
 
 class FileTextCache:
-    """Optional read-through file-text cache used by scan/review passes."""
+    """Optional read-through file-text cache used by scan/review passes.
+
+    Reads come in two flavours: ``raw`` (the bytes on disk, decoded) and the
+    default *source view*, which for Vue single-file components blanks
+    everything outside the script blocks while keeping line positions. Detectors
+    read the view; reviewers and fixers read raw.
+    """
 
     def __init__(self) -> None:
         self._enabled = False
         self._values: dict[str, FileTextReadResult] = {}
+        self._views: dict[str, FileTextReadResult] = {}
         self._last_result: tuple[str, FileTextReadResult] | None = None
 
     def enable(self) -> None:
         self._enabled = True
         self._values.clear()
+        self._views.clear()
         self._last_result = None
 
     def disable(self) -> None:
         self._enabled = False
         self._values.clear()
+        self._views.clear()
         self._last_result = None
 
-    def read_result(self, filepath: str) -> FileTextReadResult:
+    def read_result(self, filepath: str, *, raw: bool = False) -> FileTextReadResult:
+        result = self._read_raw_result(filepath)
+        if raw or result.content is None or not has_source_view(filepath):
+            return result
+        if self._enabled and filepath in self._views:
+            return self._views[filepath]
+        view = FileTextReadResult(content=source_view(filepath, result.content), error_kind=None)
+        if self._enabled:
+            self._views[filepath] = view
+        return view
+
+    def _read_raw_result(self, filepath: str) -> FileTextReadResult:
         if self._enabled and filepath in self._values:
             result = self._values[filepath]
             self._last_result = (filepath, result)
@@ -56,8 +78,8 @@ class FileTextCache:
             self._values[filepath] = result
         return result
 
-    def read(self, filepath: str) -> str | None:
-        return self.read_result(filepath).content
+    def read(self, filepath: str, *, raw: bool = False) -> str | None:
+        return self.read_result(filepath, raw=raw).content
 
     def last_error_kind(self, filepath: str) -> str | None:
         if self._last_result and self._last_result[0] == filepath:

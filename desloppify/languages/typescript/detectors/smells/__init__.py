@@ -6,7 +6,20 @@ import logging
 import re
 from pathlib import Path
 
+from desloppify.base.discovery.source import read_file_text
 from desloppify.base.output.fallbacks import log_best_effort_failure
+from desloppify.languages.typescript.detectors.io import (
+    iter_typescript_sources,
+    resolve_typescript_source,
+)
+
+from .assets import (
+    detect_non_ts_asset_smells,
+)
+from .catalog import (
+    SEVERITY_ORDER,
+    TS_SMELL_CHECKS,
+)
 from .detector_flow import (
     _detect_async_no_await,
     _detect_empty_if_chains,
@@ -24,20 +37,9 @@ from .detector_safety import (
     _detect_window_globals,
 )
 from .helpers import (
-    _FileContext,
     _build_ts_line_state,
+    _FileContext,
     _ts_match_is_in_string,
-)
-from .assets import (
-    detect_non_ts_asset_smells,
-)
-from .catalog import (
-    SEVERITY_ORDER,
-    TS_SMELL_CHECKS,
-)
-from desloppify.languages.typescript.detectors.io import (
-    iter_typescript_sources,
-    resolve_typescript_source,
 )
 
 logger = logging.getLogger(__name__)
@@ -67,7 +69,9 @@ def detect_smells(path: Path) -> tuple[list[dict], int]:
     for filepath in files:
         try:
             p = resolve_typescript_source(filepath)
-            content = p.read_text()
+            content = read_file_text(str(p))
+            if content is None:
+                raise OSError("unreadable")
             lines = content.splitlines()
         except (OSError, UnicodeDecodeError) as exc:
             log_best_effort_failure(logger, f"read TypeScript smell candidate {filepath}", exc)

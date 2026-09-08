@@ -9,12 +9,13 @@ from pathlib import Path
 from typing import Any
 
 from desloppify.base.discovery.file_paths import rel, resolve_path
-from desloppify.base.discovery.source import find_ts_and_tsx_files
-from desloppify.base.output.terminal import colorize, print_table
+from desloppify.base.discovery.source import read_file_text
 from desloppify.base.output.fallbacks import log_best_effort_failure
+from desloppify.base.output.terminal import colorize, print_table
 from desloppify.base.search.grep import grep_count_files, grep_files
 from desloppify.base.signal_patterns import DEPRECATION_MARKER_RE
 from desloppify.languages.typescript.detectors.contracts import DetectorResult
+from desloppify.languages.typescript.detectors.io import iter_typescript_sources
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +32,7 @@ _DEPRECATED_TAG_RE = re.compile(r"@deprecated", re.IGNORECASE)
 
 def detect_deprecated_result(path: Path) -> DetectorResult[dict[str, Any]]:
     """Find deprecated symbols with explicit population semantics."""
-    ts_files = find_ts_and_tsx_files(path)
+    ts_files = iter_typescript_sources(path)
     hits = grep_files(DEPRECATION_MARKER_RE.pattern, ts_files, flags=re.IGNORECASE)
 
     entries = []
@@ -82,7 +83,7 @@ def _extract_deprecated_symbol(
     """Extract the deprecated symbol name and its deprecation kind."""
     try:
         p = _resolve_source_file(filepath, scan_root=scan_root)
-        lines = p.read_text().splitlines()
+        lines = (read_file_text(str(p)) or "").splitlines()
         content_stripped = content.strip()
 
         if "/**" in content_stripped and "*/" in content_stripped:

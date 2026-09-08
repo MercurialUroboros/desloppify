@@ -21,6 +21,15 @@ For C/C++ setup requirements for a full tool-backed scan, see `cxx/README.md`.
 
 Example: `python/` — see `python/__init__.py` for the full plugin registration flow (`register_full_plugin(...)`) with 15+ detector phases, custom extractors, security hooks, and review guidance.
 
+## Vue single-file components
+
+The TypeScript plugin treats `.vue` files as sources. Detectors read them through a *source
+view* (`desloppify/base/source_views.py`) that blanks everything outside the `<script>` blocks
+while preserving length, line and column positions, so findings point at the right lines and
+the tree-sitter TSX grammar parses only code. `read_file_text(path, raw=True)` returns the
+on-disk file; review packets and fixers use it. Components are exempt from per-file test
+coverage, since Vue logic worth unit-testing belongs in composables and utils.
+
 ## Framework specs
 
 Frameworks are a horizontal layer under `_framework/frameworks/` (specs in `specs/`, shared
