@@ -78,6 +78,28 @@ def _relative_if_under_root(path_str: str) -> str:
         return path_str
 
 
+_NITRO_HANDLER_DIR_RE = re.compile(r"(?:^|/)server/(?:api|routes)/")
+_NITRO_HANDLER_RE = re.compile(r"\bdefine(?:Event|Cached(?:Event)?|WebSocket|Lazy(?:Event)?)Handler\s*\(")
+# Handlers with at most this many code lines are glue, not logic.
+THIN_NITRO_HANDLER_MAX_CODE_LINES = 40
+
+
+def is_thin_nitro_handler(filepath: str, content: str) -> bool:
+    """True for a small Nitro handler file (route glue with little logic of its own)."""
+    normalized = filepath.replace("\\", "/")
+    if not _NITRO_HANDLER_DIR_RE.search(normalized) or not _NITRO_HANDLER_RE.search(content):
+        return False
+    code_lines = 0
+    for line in strip_comments(content).splitlines():
+        stripped = line.strip()
+        if not stripped or stripped.startswith(("import ", "export type", "type ", "interface ")):
+            continue
+        if re.match(r"^[}\])\s;,]*$", stripped):
+            continue
+        code_lines += 1
+    return code_lines <= THIN_NITRO_HANDLER_MAX_CODE_LINES
+
+
 def has_testable_logic(filepath: str, content: str) -> bool:
     """Return True if a TypeScript file has runtime logic worth testing."""
     if filepath.endswith(".d.ts"):
@@ -85,6 +107,10 @@ def has_testable_logic(filepath: str, content: str) -> bool:
     # Vue single-file components are exercised through component/e2e tests,
     # not one unit test per file; their logic should live in composables/utils.
     if filepath.endswith(".vue"):
+        return False
+    # Thin Nitro route handlers (Nuxt server/api, server/routes) are glue that
+    # is covered by API/e2e tests; the logic they call lives in server/utils.
+    if is_thin_nitro_handler(filepath, content):
         return False
 
     in_block_comment = False

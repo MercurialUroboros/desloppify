@@ -13,8 +13,10 @@ from pathlib import Path
 from desloppify.base.discovery.paths import get_project_root
 from desloppify.base.discovery.source import find_js_ts_and_tsx_files
 from desloppify.languages._framework.node.js_text import (
+    blank_js_ts_comments as _strip_ts_comments,
+)
+from desloppify.languages._framework.node.js_text import (
     code_text as _code_text,
-    strip_js_ts_comments as _strip_ts_comments,
 )
 
 from .info import NextjsFrameworkInfo

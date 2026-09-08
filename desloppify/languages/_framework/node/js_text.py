@@ -16,6 +16,48 @@ def strip_js_ts_comments(text: str) -> str:
     return strip_c_style_comments(text)
 
 
+def blank_js_ts_comments(text: str) -> str:
+    """Replace // and /* */ comments with spaces, keeping newlines and string literals.
+
+    Unlike :func:`strip_js_ts_comments` the result has the same length and line
+    layout as the input, so offsets and line numbers computed on it map back
+    to the original file.
+    """
+    out = list(text)
+    i = 0
+    in_str: str | None = None
+    n = len(text)
+    while i < n:
+        ch = text[i]
+        if in_str:
+            if ch == "\\" and i + 1 < n:
+                i += 2
+                continue
+            if ch == in_str:
+                in_str = None
+            i += 1
+            continue
+        if ch in ("'", '"', "`"):
+            in_str = ch
+            i += 1
+            continue
+        if ch == "/" and i + 1 < n and text[i + 1] == "/":
+            while i < n and text[i] != "\n":
+                out[i] = " "
+                i += 1
+            continue
+        if ch == "/" and i + 1 < n and text[i + 1] == "*":
+            end = text.find("*/", i + 2)
+            stop = n if end == -1 else end + 2
+            for j in range(i, stop):
+                if text[j] != "\n":
+                    out[j] = " "
+            i = stop
+            continue
+        i += 1
+    return "".join(out)
+
+
 def scan_code(text: str) -> Generator[tuple[int, str, bool], None, None]:
     """Yield ``(index, char, in_string)`` tuples while handling escapes."""
     i = 0

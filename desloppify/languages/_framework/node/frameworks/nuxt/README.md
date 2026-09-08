@@ -16,10 +16,20 @@ dependency, `nuxt.config.*`, or a `nuxt` script in the nearest `package.json`.
   listed in `frameworks`. Generic Vue rules come from the Vue spec, which is always detected
   alongside Nuxt.
 
+- **Scanner rules** (`scanners.py`, wired in the spec as `nuxt::*` issues): server imports in
+  app code, `process.env` in app code, `useRoute`/`useRouter` from vue-router, `definePageMeta`
+  outside `pages/`, top-level `await $fetch` in `<script setup>`, top-level browser globals in
+  setup, module-level `ref`/`reactive` state in composables, Nitro handlers reading unvalidated
+  input, and secret-looking keys under `runtimeConfig.public`. All regex/heuristic and
+  precision-first; Vue components are read through the script view so line numbers match.
+- **Test coverage**: thin Nitro handlers (`server/api|routes`, `defineEventHandler`, ≤40 code
+  lines) do not count as untested modules; fat handlers still do.
+
 ## Not modelled yet
 
 - A custom `srcDir` (for example `src/`) or `imports.dirs` overrides.
-- Scanner rules (the Next.js spec has ~20; the same `ScannerRule` mechanism applies).
+- More scanner rules (route rules, lazy hydration, `useAsyncData` keys) and a `nuxt typecheck`
+  tool integration.
 - Template analysis. `.vue` files are TypeScript sources through their *script view*
   (`desloppify.base.source_views`): the TypeScript detectors, complexity signals, duplicate
   detection and tree-sitter cohesion see the `<script>`/`<script setup>` blocks with original
