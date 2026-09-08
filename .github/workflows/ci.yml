@@ -103,6 +103,25 @@ jobs:
           name: pytest-full-report
           path: pytest-full.xml
 
+  tests-python-latest:
+    name: tests-python-latest
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - name: Run full tests on the newest supported Python
+        run: make tests-full PYTEST_XML=pytest-py-latest.xml
+      - name: Upload latest-Python test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pytest-py-latest-report
+          path: pytest-py-latest.xml
+
   package-smoke:
     name: package-smoke
     runs-on: ubuntu-latest

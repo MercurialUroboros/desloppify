@@ -25,6 +25,8 @@ Example: `python/` — see `python/__init__.py` for the full plugin registration
 
 These are single-file plugins (~20-40 lines) that call `generic_lang()` with external tool specs. When `tree-sitter-language-pack` is installed, they also get AST-powered analysis for free.
 
+`tree-sitter-language-pack` 1.8+ no longer bundles grammars in the wheel: each grammar is downloaded on first use into a per-user cache (`tree_sitter_language_pack.cache_dir()`). In an offline sandbox the AST phases are skipped and the scan reports reduced coverage for `smells`, `responsibility_cohesion`, and `unused` instead of pretending the code is clean. Prefetch grammars once with network access: `python -c "import tree_sitter_language_pack as t; t.prefetch(['go', 'ruby'])"`. Pin `tree-sitter-language-pack<1.8` if you need a fully bundled, offline-only install (no Nim grammar in that range).
+
 | Language | Path | Tools | Tree-sitter |
 |----------|------|-------|-------------|
 | Ruby | `ruby/` | rubocop | functions, methods, classes, imports |

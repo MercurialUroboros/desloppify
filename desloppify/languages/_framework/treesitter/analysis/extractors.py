@@ -28,6 +28,7 @@ _PARAM_NODE_TYPES = frozenset({
     "lambda_parameters",
     "method_parameters",
     "params",
+    "paramList",  # nim
 })
 
 # Identifier-like node types for parameter names.
@@ -38,6 +39,7 @@ _IDENT_NODE_TYPES = frozenset({
     "word",
     "pattern",
     "shorthand_field_identifier",
+    "ident",  # nim
 })
 
 # Node types to skip when walking parameter lists (type annotations, etc.).
@@ -45,6 +47,7 @@ _PARAM_SKIP_TYPES = frozenset({
     "type", "type_identifier", "type_annotation", "return_type",
     "default_value", "generic_type", "scoped_type_identifier",
     "constrained_type_parameter", "lifetime", "attribute",
+    "typeDesc",  # nim
     ":", "=", ",", "(", ")", "[", "]",
 })
 

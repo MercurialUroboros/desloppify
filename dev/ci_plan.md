@@ -29,12 +29,15 @@ Required jobs:
   - `make tests PYTEST_XML=pytest-core.xml`
 - `tests-full`:
   - `make tests-full PYTEST_XML=pytest-full.xml`
+- `tests-python-latest`:
+  - `make tests-full PYTEST_XML=pytest-py-latest.xml` on the newest supported Python (3.14); the other jobs pin the minimum (3.11)
 - `package-smoke`:
   - `make package-smoke`
 
 Artifacts uploaded:
 - `pytest-core-report`
 - `pytest-full-report`
+- `pytest-py-latest-report`
 - `dist-packages`
 
 ### 2) Integration (`.github/workflows/integration.yml`)
@@ -73,6 +76,7 @@ Required status checks:
 - `CI / ci-contracts`
 - `CI / tests-core`
 - `CI / tests-full`
+- `CI / tests-python-latest`
 - `CI / package-smoke`
 
 Pull request policy:

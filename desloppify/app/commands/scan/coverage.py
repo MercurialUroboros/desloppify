@@ -3,7 +3,11 @@
 from __future__ import annotations
 
 from desloppify import state as state_mod
-from desloppify.languages.framework import DetectorCoverageRecord, LangRun
+from desloppify.languages.framework import (
+    DetectorCoverageRecord,
+    LangRun,
+    treesitter_coverage_prerequisites,
+)
 
 
 def coerce_int(value: object, *, default: int) -> int:
@@ -94,7 +98,10 @@ def seed_runtime_coverage_warnings(lang: LangRun | None) -> list[DetectorCoverag
         return []
 
     warnings: list[DetectorCoverageRecord] = []
-    raw_entries = lang.scan_coverage_prerequisites()
+    raw_entries = [
+        *lang.scan_coverage_prerequisites(),
+        *treesitter_coverage_prerequisites(lang.name),
+    ]
     for raw in raw_entries:
         normalized = normalize_coverage_warning(raw)
         if normalized is None:

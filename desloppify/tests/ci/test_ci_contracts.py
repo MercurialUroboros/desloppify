@@ -52,6 +52,7 @@ def test_ci_workflow_jobs_are_bound_to_make_targets() -> None:
         "ci-contracts": "make ci-contracts",
         "tests-core": "make tests PYTEST_XML=pytest-core.xml",
         "tests-full": "make tests-full PYTEST_XML=pytest-full.xml",
+        "tests-python-latest": "make tests-full PYTEST_XML=pytest-py-latest.xml",
         "package-smoke": "make package-smoke",
     }
 
@@ -66,6 +67,36 @@ def test_ci_workflow_jobs_are_bound_to_make_targets() -> None:
         assert any(step.get("uses") == "actions/setup-python@v5" for step in job["steps"]), (
             f"{job_name} should use actions/setup-python@v5."
         )
+
+
+def _setup_python_version(job: dict) -> str:
+    for step in job.get("steps", []):
+        if step.get("uses") == "actions/setup-python@v5":
+            return str(step.get("with", {}).get("python-version", ""))
+    return ""
+
+
+def test_ci_covers_minimum_and_newest_supported_python() -> None:
+    """Gates pin the floor from requires-python; one job runs the newest classifier."""
+    doc = tomllib.loads(PYPROJECT.read_text())
+    project = doc["project"]
+    floor = project["requires-python"].removeprefix(">=").strip()
+    classifiers = project["classifiers"]
+    versions = [
+        c.rsplit(":: ", 1)[1]
+        for c in classifiers
+        if c.startswith("Programming Language :: Python :: 3.")
+    ]
+    newest = max(versions, key=lambda v: tuple(int(x) for x in v.split(".")))
+
+    jobs = _load_yaml(CI_WORKFLOW)["jobs"]
+    for name in ("lint", "typecheck", "arch-contracts", "ci-contracts", "tests-core", "tests-full"):
+        assert _setup_python_version(jobs[name]) == floor, (
+            f"{name} must run on the minimum supported Python ({floor})."
+        )
+    assert _setup_python_version(jobs["tests-python-latest"]) == newest, (
+        f"tests-python-latest must run on the newest classified Python ({newest})."
+    )
 
 
 def test_ci_workflow_has_expected_triggers() -> None:
@@ -169,6 +200,7 @@ def test_ci_plan_required_checks_match_ci_workflow() -> None:
             "ci-contracts",
             "tests-core",
             "tests-full",
+            "tests-python-latest",
             "package-smoke",
         )
     ]

@@ -141,7 +141,76 @@ void hello(const char* name) {
     return str(f)
 
 
+@pytest.fixture
+def nim_file(tmp_path):
+    """Create a temp Nim file for testing."""
+    code = """\
+import strutils
+
+# Greets someone by name.
+proc hello(name: string, count: int): string =
+  ## Doc comment inside the routine.
+  var s = name
+  for i in 0 ..< count:
+    s.add name
+  result = s
+
+func add(a, b: int): int =
+  let c = a + b
+  let d = c * 2
+  result = d
+
+iterator countTo(n: int): int =
+  var i = 0
+  while i < n:
+    yield i
+    inc i
+
+proc tiny() = discard
+"""
+    f = tmp_path / "main.nim"
+    f.write_text(code)
+    return str(f)
+
+
 # ── Function extraction tests ────────────────────────────────
+
+
+class TestNimExtraction:
+    """Nim routines (proc/func/iterator/...) share one `routine` node."""
+
+    @pytest.fixture(autouse=True)
+    def _require_nim_grammar(self):
+        from desloppify.languages._framework.treesitter import PARSE_INIT_ERRORS
+        from desloppify.languages._framework.treesitter.analysis.extractors import _get_parser
+
+        try:
+            _get_parser("nim")
+        except PARSE_INIT_ERRORS as exc:
+            pytest.skip(f"nim grammar not available in this environment: {exc}")
+
+    def test_extract_functions(self, nim_file, tmp_path):
+        from desloppify.languages._framework.treesitter.analysis.extractors import (
+            ts_extract_functions,
+        )
+        from desloppify.languages._framework.treesitter.specs.scripting import NIM_SPEC
+
+        functions = ts_extract_functions(tmp_path, NIM_SPEC, [nim_file])
+        # tiny() is filtered (< 3 lines normalized)
+        assert sorted(f.name for f in functions) == ["add", "countTo", "hello"]
+
+    def test_function_line_numbers_and_params(self, nim_file, tmp_path):
+        from desloppify.languages._framework.treesitter.analysis.extractors import (
+            ts_extract_functions,
+        )
+        from desloppify.languages._framework.treesitter.specs.scripting import NIM_SPEC
+
+        functions = {f.name: f for f in ts_extract_functions(tmp_path, NIM_SPEC, [nim_file])}
+        assert functions["hello"].line == 4
+        assert functions["hello"].end_line == 9
+        # Parameter names only — type annotations are skipped.
+        assert functions["hello"].params == ["name", "count"]
+        assert functions["add"].params == ["a", "b"]
 
 
 class TestGoExtraction:
@@ -1281,3 +1350,30 @@ class TestEslintParser:
 
         output = '[{"filePath": "/src/clean.js", "messages": []}]'
         assert parse_eslint(output, Path("/src")) == []
+
+
+# ── Parser init error handling ───────────────────────────────
+
+
+class TestParseInitErrors:
+    def test_unknown_grammar_is_a_parse_init_error(self):
+        """A grammar the pack does not ship must degrade, not crash the scan."""
+        import tree_sitter_language_pack
+
+        from desloppify.languages._framework.treesitter import PARSE_INIT_ERRORS
+
+        with pytest.raises(PARSE_INIT_ERRORS):
+            tree_sitter_language_pack.get_parser("no-such-grammar")
+
+    def test_unused_imports_returns_empty_for_unknown_grammar(self, tmp_path):
+        from dataclasses import replace
+
+        from desloppify.languages._framework.treesitter.analysis.unused_imports import (
+            detect_unused_imports,
+        )
+        from desloppify.languages._framework.treesitter.specs.scripting import BASH_SPEC
+
+        script = tmp_path / "x.sh"
+        script.write_text("source ./helpers.sh\n")
+        spec = replace(BASH_SPEC, grammar="no-such-grammar")
+        assert detect_unused_imports([str(script)], spec) == []

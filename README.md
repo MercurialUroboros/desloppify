@@ -100,6 +100,8 @@ jobs:
       - run: desloppify status --json
 ```
 
+Recent `tree-sitter-language-pack` releases download grammars on first use, so give the job network access or cache the pack's grammar directory between runs; otherwise the scan still completes but reports reduced coverage for the AST-based detectors.
+
 For monorepos, run one job or matrix entry per project path instead of scanning the workspace root. True incremental or diff-only scanning is not the supported model yet; compare full-codebase results across runs or enforce a project-level threshold.
 
 ## How it works

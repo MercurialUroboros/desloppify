@@ -14,8 +14,10 @@
 	install-ci-tools \
 	install-full-tools
 
-PIP := python -m pip
-LINT_IMPORTS := $(shell python -c "import pathlib,sys; print(pathlib.Path(sys.executable).with_name('lint-imports'))")
+# Override with e.g. `make PYTHON=.venv/bin/python tests` when no venv is active.
+PYTHON ?= python3
+PIP := $(PYTHON) -m pip
+LINT_IMPORTS := $(shell $(PYTHON) -c "import pathlib,sys; print(pathlib.Path(sys.executable).with_name('lint-imports'))")
 IMPORTLINTER_CONFIG ?= .github/importlinter.ini
 PYTEST_XML ?=
 PYTEST_XML_FLAG := $(if $(PYTEST_XML),--junitxml=$(PYTEST_XML),)
@@ -40,10 +42,10 @@ install-full-tools: install-hooks
 	$(PIP) install -e ".[full]" pytest ruff
 
 lint: install-ci-tools
-	ruff check . --select E9,F63,F7,F82
+	$(PYTHON) -m ruff check . --select E9,F63,F7,F82
 
 typecheck: install-ci-tools
-	python -m mypy
+	$(PYTHON) -m mypy
 
 arch: install-ci-tools
 	@if [ ! -f "$(IMPORTLINTER_CONFIG)" ]; then \
@@ -53,23 +55,23 @@ arch: install-ci-tools
 	$(LINT_IMPORTS) --config $(IMPORTLINTER_CONFIG)
 
 ci-contracts: install-ci-tools
-	pytest -q desloppify/tests/ci/test_ci_contracts.py
-	pytest -q desloppify/tests/commands/test_lifecycle_transitions.py -k "assessment_then_score_when_no_review_followup"
+	$(PYTHON) -m pytest -q desloppify/tests/ci/test_ci_contracts.py
+	$(PYTHON) -m pytest -q desloppify/tests/commands/test_lifecycle_transitions.py -k "assessment_then_score_when_no_review_followup"
 
 integration-roslyn: install-ci-tools
-	pytest -q desloppify/tests/lang/csharp/test_csharp_deps.py -k "roslyn"
+	$(PYTHON) -m pytest -q desloppify/tests/lang/csharp/test_csharp_deps.py -k "roslyn"
 
 tests: install-ci-tools
-	pytest -q $(PYTEST_XML_FLAG)
+	$(PYTHON) -m pytest -q $(PYTEST_XML_FLAG)
 
 tests-full: install-full-tools
-	pytest -q $(PYTEST_XML_FLAG)
+	$(PYTHON) -m pytest -q $(PYTEST_XML_FLAG)
 
 package-smoke: install-ci-tools
 	rm -rf dist .pkg-smoke
-	python -m build
-	twine check dist/*
-	python -m venv .pkg-smoke
+	$(PYTHON) -m build
+	$(PYTHON) -m twine check dist/*
+	$(PYTHON) -m venv .pkg-smoke
 	. .pkg-smoke/bin/activate && \
 		python -m pip install --upgrade pip && \
 		WHEEL=$$(ls -t dist/desloppify-*.whl | head -n 1) && \

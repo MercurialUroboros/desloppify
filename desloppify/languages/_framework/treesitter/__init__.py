@@ -62,11 +62,30 @@ def reset_script_import_caches(scan_path: str | None = None) -> None:
     _reset(scan_path)
 
 
+def _language_pack_errors() -> tuple[type[Exception], ...]:
+    """Exception types the installed language pack raises when a grammar is unusable.
+
+    Packs before 1.8 raise ``LanguageNotFoundError(ValueError)``. Packs from 1.8
+    on download grammars on first use and raise their own ``Error`` subclasses
+    (``LanguageNotFoundError``, ``DownloadError``, ``DynamicLoadError``, ...),
+    none of which derive from the builtins listed below.
+    """
+    if not _AVAILABLE:
+        return ()
+    found: list[type[Exception]] = []
+    for name in ("Error", "LanguageNotFoundError"):
+        candidate = getattr(tree_sitter_language_pack, name, None)
+        if isinstance(candidate, type) and issubclass(candidate, Exception):
+            found.append(candidate)
+    return tuple(found)
+
+
 PARSE_INIT_ERRORS: tuple[type[Exception], ...] = (
     ImportError,
     OSError,
     ValueError,
     RuntimeError,
+    *_language_pack_errors(),
 )
 
 from .specs.specs import (  # noqa: E402
@@ -100,6 +119,10 @@ from .specs.specs import (  # noqa: E402
     TREESITTER_SPECS,
     TYPESCRIPT_SPEC,
     ZIG_SPEC,
+)
+from .coverage import (  # noqa: E402
+    TREESITTER_BACKED_DETECTORS,
+    treesitter_coverage_prerequisites,
 )
 from .phases import (  # noqa: E402
     all_treesitter_phases,
@@ -143,6 +166,8 @@ __all__ = [
     "NIM_SPEC",
     "OCAML_SPEC",
     "PARSE_INIT_ERRORS",
+    "TREESITTER_BACKED_DETECTORS",
+    "treesitter_coverage_prerequisites",
     "PERL_SPEC",
     "PHP_SPEC",
     "POWERSHELL_SPEC",

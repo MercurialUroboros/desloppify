@@ -51,15 +51,25 @@ def test_treesitter_extra_declares_runtime_and_language_pack() -> None:
     assert "tree-sitter-language-pack" in package_names
 
 
-def test_treesitter_language_pack_is_capped_below_incompatible_release() -> None:
+def test_treesitter_extra_pins_known_good_language_pack_range() -> None:
+    """Keep the language pack inside the range verified against our queries.
+
+    - ``>=1.6.2``: oldest release verified with tree-sitter 0.25+ (bundles all
+      grammars in the wheel, no Nim).
+    - ``!=1.6.3``: its cp314 wheel ships no Python package at all.
+    - ``<2``: 1.8+ downloads grammars on first use and returns real
+      ``tree_sitter.Language`` objects again; grammars rename node types between
+      majors, so bump the cap deliberately.
+    - ``tree-sitter>=0.25``: ``QueryCursor`` (used by the extractors) first
+      appeared in 0.25.
+    """
     optional = _optional_dependencies()
     treesitter_specs = optional.get("treesitter")
     assert isinstance(treesitter_specs, list), "optional extra 'treesitter' must be a list"
 
-    language_pack_specs = [
-        str(spec)
+    by_name = {
+        re.split(r"[<>=!~;\s\[]", str(spec), maxsplit=1)[0].strip().lower(): str(spec)
         for spec in treesitter_specs
-        if str(spec).startswith("tree-sitter-language-pack")
-    ]
-
-    assert language_pack_specs == ["tree-sitter-language-pack>=0.3,<1.8"]
+    }
+    assert by_name["tree-sitter-language-pack"] == "tree-sitter-language-pack>=1.6.2,!=1.6.3,<2"
+    assert by_name["tree-sitter"] == "tree-sitter>=0.25"

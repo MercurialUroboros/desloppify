@@ -11,6 +11,7 @@ from desloppify.languages._framework.registry import state as registry_state
 from desloppify.languages._framework.base.types import (
     BoundaryRule,
     DetectorCoverageRecord,
+    DetectorCoverageStatus,
     DetectorPhase,
     FixerConfig,
     FixResult,
@@ -50,6 +51,15 @@ def capability_report(cfg: LangRun) -> tuple[list[str], list[str]] | None:
     )
 
     return _capability_report(cfg)
+
+
+def treesitter_coverage_prerequisites(language: str) -> list[DetectorCoverageStatus]:
+    """Reduced-coverage entries when a language's tree-sitter grammar cannot load."""
+    from desloppify.languages._framework.treesitter import (
+        treesitter_coverage_prerequisites as _prerequisites,
+    )
+
+    return _prerequisites(language)
 
 
 def enable_parse_cache() -> None:
@@ -99,6 +109,7 @@ __all__ = [
     "LangRun",
     "LangRunOverrides",
     "DetectorCoverageRecord",
+    "DetectorCoverageStatus",
     "DetectorPhase",
     "FixerConfig",
     "FixResult",
@@ -119,4 +130,5 @@ __all__ = [
     "reset_script_import_caches",
     "registry_state",
     "shared_phase_labels",
+    "treesitter_coverage_prerequisites",
 ]

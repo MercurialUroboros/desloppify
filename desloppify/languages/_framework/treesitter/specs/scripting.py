@@ -120,14 +120,19 @@ ZIG_SPEC = TreeSitterLangSpec(
     ),
 )
 
+# tree-sitter-language-pack >= 1.16 ships the `nim` grammar whose routine
+# declarations (proc/func/method/iterator/converter/template/macro) all share
+# the `routine` node; the keyword is a `keyw` child and the body a `block`.
 NIM_SPEC = TreeSitterLangSpec(
     grammar="nim",
     function_query="""
-        (proc_declaration
-            name: (identifier) @name
-            body: (statement_list) @body) @func
+        (routine
+            (keyw)
+            (symbol (ident) @name)
+            (block) @body) @func
     """,
-    comment_node_types=frozenset({"comment"}),
+    comment_node_types=frozenset({"comment", "docComment"}),
+    string_node_types=frozenset({"str_lit", "rstr_lit", "triplestr_lit"}),
     log_patterns=(
         r"^\s*(?:echo |debugEcho )",
     ),
