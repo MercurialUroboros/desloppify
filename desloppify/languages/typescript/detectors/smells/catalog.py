@@ -84,7 +84,9 @@ TS_SMELL_CHECKS = [
     {
         "id": "hardcoded_url",
         "label": "Hardcoded URL in source code",
-        "pattern": r"""(?:['\"])https?://[^\s'\"]+(?:['\"])""",
+        # Vocabulary namespaces (JSON-LD @context, RDF, XML) are identifiers,
+        # not endpoints: nothing is fetched from them and nothing to configure.
+        "pattern": r"""(?:['\"])https?://(?!(?:www\.)?(?:schema\.org|w3\.org|purl\.org|xmlns\.com|ogp\.me|json-schema\.org)(?:[/'\"]|$))[^\s'\"]+(?:['\"])""",
         "severity": "medium",
     },
     {

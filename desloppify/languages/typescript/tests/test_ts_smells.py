@@ -129,6 +129,33 @@ def test_hardcoded_url_skips_module_constants(tmp_path):
     assert len(url_entries) == 0
 
 
+def test_hardcoded_url_skips_vocabulary_namespaces(tmp_path):
+    """JSON-LD @context and RDF namespace IRIs are identifiers, not endpoints."""
+
+    _write(
+        tmp_path,
+        "seo.ts",
+        (
+            "function ld() {\n"
+            "  return { '@context': 'https://schema.org', avail: 'https://schema.org/InStock',\n"
+            "    ns: 'http://www.w3.org/2000/svg' };\n"
+            "}\n"
+        ),
+    )
+    entries, _ = detect_smells(tmp_path)
+    url_entries = [e for e in entries if e["id"] == "hardcoded_url"]
+    assert len(url_entries) == 0
+
+
+def test_hardcoded_url_still_flags_lookalike_host(tmp_path):
+    """A host that merely starts with a vocabulary name is still an endpoint."""
+
+    _write(tmp_path, "bad.ts", "function f() { return fetch('https://schema.org.example.com/x'); }\n")
+    entries, _ = detect_smells(tmp_path)
+    ids = {e["id"] for e in entries}
+    assert "hardcoded_url" in ids
+
+
 def test_detect_todo_fixme(tmp_path):
     """Detects TODO/FIXME/HACK/XXX comments."""
 
@@ -276,6 +303,42 @@ def test_async_with_await_not_flagged(tmp_path):
             "async function fetchData() {\n"
             "  const data = await fetch('/api');\n"
             "  return data;\n"
+            "}\n"
+        ),
+    )
+    entries, _ = detect_smells(tmp_path)
+    ids = {e["id"] for e in entries}
+    assert "async_no_await" not in ids
+
+
+def test_async_with_await_after_apostrophe_comment_not_flagged(tmp_path):
+    """A quote inside a // comment must not swallow the await that follows it."""
+
+    _write(
+        tmp_path,
+        "ok.ts",
+        (
+            "async function selectPlan() {\n"
+            "  // the site's own host stays inside the WebView\n"
+            "  await openExternal('/abbonati');\n"
+            "}\n"
+        ),
+    )
+    entries, _ = detect_smells(tmp_path)
+    ids = {e["id"] for e in entries}
+    assert "async_no_await" not in ids
+
+
+def test_async_with_await_after_block_comment_quote_not_flagged(tmp_path):
+    """Same for a quote inside a block comment."""
+
+    _write(
+        tmp_path,
+        "ok.ts",
+        (
+            "async function run() {\n"
+            "  /* don't retry */\n"
+            "  await job();\n"
             "}\n"
         ),
     )

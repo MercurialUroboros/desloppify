@@ -129,30 +129,66 @@ def _content_line_info(content: str, pos: int) -> tuple[int, str]:
 
 
 def _code_text(text: str) -> str:
-    """Blank string literals and ``//`` comments to spaces, preserving positions."""
+    """Blank string literals and comments to spaces, preserving positions.
+
+    Comments and strings are tracked together: a quote inside a ``//`` or
+    ``/* */`` comment must not open a string, or an apostrophe in prose
+    ("the site's host") blanks every line of code that follows it.
+    """
     out = list(text)
+    n = len(text)
+    i = 0
+    in_str: str | None = None
     in_line_comment = False
-    prev_code_idx = -2
-    prev_code_ch = ""
-    for i, ch, in_s in scan_code(text):
-        if ch == "\n":
-            in_line_comment = False
-            prev_code_ch = ""
-            continue
+    in_block_comment = False
+    while i < n:
+        ch = text[i]
         if in_line_comment:
-            out[i] = " "
+            if ch == "\n":
+                in_line_comment = False
+            else:
+                out[i] = " "
+            i += 1
             continue
-        if in_s:
-            out[i] = " "
+        if in_block_comment:
+            if ch == "*" and i + 1 < n and text[i + 1] == "/":
+                out[i] = " "
+                out[i + 1] = " "
+                in_block_comment = False
+                i += 2
+                continue
+            if ch != "\n":
+                out[i] = " "
+            i += 1
             continue
-        if ch == "/" and prev_code_ch == "/" and prev_code_idx == i - 1:
-            out[prev_code_idx] = " "
+        if in_str:
+            if ch == "\\" and i + 1 < n:
+                out[i] = " "
+                if text[i + 1] != "\n":
+                    out[i + 1] = " "
+                i += 2
+                continue
+            if ch == in_str:
+                in_str = None
+            elif ch != "\n":
+                out[i] = " "
+            i += 1
+            continue
+        if ch == "/" and i + 1 < n and text[i + 1] == "/":
             out[i] = " "
+            out[i + 1] = " "
             in_line_comment = True
-            prev_code_ch = ""
+            i += 2
             continue
-        prev_code_idx = i
-        prev_code_ch = ch
+        if ch == "/" and i + 1 < n and text[i + 1] == "*":
+            out[i] = " "
+            out[i + 1] = " "
+            in_block_comment = True
+            i += 2
+            continue
+        if ch in ("'", '"', "`"):
+            in_str = ch
+        i += 1
     return "".join(out)
 
 
