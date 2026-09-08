@@ -371,6 +371,30 @@ def test_async_with_object_typed_param_not_flagged(tmp_path):
     assert "async_no_await" not in ids
 
 
+def test_async_with_object_return_type_not_flagged(tmp_path):
+    """Braces inside a ``Promise<{ ... }>`` return type are not the body either."""
+
+    _write(
+        tmp_path,
+        "ok.ts",
+        (
+            "export async function load(\n"
+            "  db: Db,\n"
+            "): Promise<{ premium: boolean }> {\n"
+            "  const row = await db.one()\n"
+            "  return { premium: !!row }\n"
+            "}\n"
+            "const go = async (x: number): Promise<{ n: number }> => {\n"
+            "  await tick()\n"
+            "  return { n: x }\n"
+            "}\n"
+        ),
+    )
+    entries, _ = detect_smells(tmp_path)
+    ids = {e["id"] for e in entries}
+    assert "async_no_await" not in ids
+
+
 def test_monster_function_measured_from_body_brace(tmp_path):
     """A one-line inline object type in the params does not end the function early."""
 

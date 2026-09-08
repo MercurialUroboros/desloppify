@@ -106,15 +106,24 @@ def _find_body_brace(
     hide it.
     """
     depth = 0
+    angle = 0
     for idx in range(start, min(start + window, len(lines))):
         code = _code_text(lines[idx])
+        prev = ""
         for col, ch in enumerate(code):
             if ch == "(":
                 depth += 1
             elif ch == ")":
                 depth = max(0, depth - 1)
-            elif ch == "{" and depth == 0:
+            elif ch == "<":
+                angle += 1
+            elif ch == ">" and prev != "=":
+                # A return type such as ``Promise<{ ok: true }>`` carries braces of
+                # its own; ``=>`` is the arrow, not a closing angle bracket.
+                angle = max(0, angle - 1)
+            elif ch == "{" and depth == 0 and angle == 0:
                 return idx, col
+            prev = ch
     return None
 
 
