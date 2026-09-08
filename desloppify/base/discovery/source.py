@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import os
-from contextlib import contextmanager
 from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -46,6 +46,14 @@ DEFAULT_EXCLUSIONS = frozenset(
         "*.egg-info",
         ".svn",
         ".hg",
+    }
+)
+
+# Nested directories that are never useful to scan. Matched on the path
+# relative to the scan root, unlike DEFAULT_EXCLUSIONS which match a name.
+DEFAULT_PATH_EXCLUSIONS = frozenset(
+    {
+        ".claude/worktrees",  # Claude Code git worktrees: full copies of the repo
     }
 )
 
@@ -145,15 +153,30 @@ def collect_exclude_dirs(
         else get_exclusions(runtime=runtime)
     )
     patterns = set()
-    for pat in DEFAULT_EXCLUSIONS:
+    for pat in DEFAULT_EXCLUSIONS | DEFAULT_PATH_EXCLUSIONS:
         if "*" not in pat:
             patterns.add(pat)
     patterns.update(p for p in resolved_exclusions if p and "*" not in p)
     return [str(scan_root / p) for p in sorted(patterns) if p]
 
 
+def _has_path_segments(rel_path: str, exclusion: str) -> bool:
+    """True when *exclusion*'s segments appear consecutively anywhere in *rel_path*.
+
+    Traversal paths are project-root relative, so a scan target outside the root
+    renders as ``../site/.claude/worktrees``; a prefix match would miss it.
+    """
+    parts = tuple(p for p in rel_path.replace("\\", "/").split("/") if p and p != ".")
+    needle = tuple(exclusion.split("/"))
+    width = len(needle)
+    return any(parts[i : i + width] == needle for i in range(len(parts) - width + 1))
+
+
 def _is_excluded_dir(name: str, rel_path: str, extra: tuple[str, ...]) -> bool:
     in_default_exclusions = name in DEFAULT_EXCLUSIONS or name.endswith(".egg-info")
+    in_default_path_exclusions = any(
+        _has_path_segments(rel_path, exclusion) for exclusion in DEFAULT_PATH_EXCLUSIONS
+    )
     is_virtualenv_dir = name.startswith(".venv") or name.startswith("venv")
     matches_extra_exclusion = bool(
         extra
@@ -165,7 +188,12 @@ def _is_excluded_dir(name: str, rel_path: str, extra: tuple[str, ...]) -> bool:
             for exclusion in extra
         )
     )
-    return in_default_exclusions or is_virtualenv_dir or matches_extra_exclusion
+    return (
+        in_default_exclusions
+        or in_default_path_exclusions
+        or is_virtualenv_dir
+        or matches_extra_exclusion
+    )
 
 
 def _find_source_files_cached(
@@ -318,6 +346,7 @@ def find_py_files(path: str | Path, *, runtime: RuntimeContext | None = None) ->
 
 __all__ = [
     "DEFAULT_EXCLUSIONS",
+    "DEFAULT_PATH_EXCLUSIONS",
     "SourceDiscoveryOptions",
     "collect_exclude_dirs",
     "set_exclusions",

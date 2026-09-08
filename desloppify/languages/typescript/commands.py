@@ -28,21 +28,23 @@ from desloppify.languages._framework.commands.registry import (
     build_standard_detect_registry,
     compose_detect_registry,
 )
+from desloppify.languages._framework.frameworks import framework_convention_entry
+from desloppify.languages.typescript.detectors.concerns import cmd_concerns
+from desloppify.languages.typescript.detectors.deprecated import cmd_deprecated
 from desloppify.languages.typescript.detectors.deps import (
     build_dep_graph,
     build_dynamic_import_targets,
+    cmd_cycles,
+    cmd_deps,
     ts_alias_resolver,
 )
-from desloppify.languages.typescript.detectors.facade import detect_reexport_facades
-from desloppify.languages.typescript.detectors.smells import detect_smells
-from desloppify.languages.typescript.detectors.concerns import cmd_concerns
-from desloppify.languages.typescript.detectors.deprecated import cmd_deprecated
-from desloppify.languages.typescript.detectors.deps import cmd_cycles, cmd_deps
 from desloppify.languages.typescript.detectors.exports import cmd_exports
+from desloppify.languages.typescript.detectors.facade import detect_reexport_facades
 from desloppify.languages.typescript.detectors.logs import cmd_logs
 from desloppify.languages.typescript.detectors.patterns.cli import cmd_patterns
 from desloppify.languages.typescript.detectors.props import cmd_props
 from desloppify.languages.typescript.detectors.react.cli import cmd_react
+from desloppify.languages.typescript.detectors.smells import detect_smells
 from desloppify.languages.typescript.detectors.unused import cmd_unused
 from desloppify.languages.typescript.extractors_components import (
     detect_passthrough_components,
@@ -55,8 +57,10 @@ from desloppify.languages.typescript.phases_config import (
     TS_SKIP_DIRS,
     TS_SKIP_NAMES,
 )
-from desloppify.languages.typescript.plugin_contract import TS_BARREL_NAMES, TS_LARGE_THRESHOLD
-
+from desloppify.languages.typescript.plugin_contract import (
+    TS_BARREL_NAMES,
+    TS_LARGE_THRESHOLD,
+)
 
 cmd_large = make_cmd_large(
     find_ts_and_tsx_files,
@@ -126,6 +130,7 @@ def cmd_orphaned(args: argparse.Namespace) -> None:
         options=orphaned_detector_mod.OrphanedDetectionOptions(
             dynamic_import_finder=build_dynamic_import_targets,
             alias_resolver=ts_alias_resolver,
+            convention_entry=framework_convention_entry(Path(args.path), None),
         ),
     )
     if getattr(args, "json", False):

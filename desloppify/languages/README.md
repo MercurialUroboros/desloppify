@@ -21,6 +21,14 @@ For C/C++ setup requirements for a full tool-backed scan, see `cxx/README.md`.
 
 Example: `python/` — see `python/__init__.py` for the full plugin registration flow (`register_full_plugin(...)`) with 15+ detector phases, custom extractors, security hooks, and review guidance.
 
+## Framework specs
+
+Frameworks are a horizontal layer under `_framework/frameworks/` (specs in `specs/`, shared
+scanner/guidance code under `node/frameworks/<name>/`). A spec can contribute scanner rules and
+tool integrations (Next.js), convention entry points that keep file-routed and auto-imported
+files out of `orphaned` (Next.js, Nuxt), and review guidance merged into review packets (Vue,
+Nuxt). Detection is evidence-based from the nearest `package.json` and config files.
+
 ## Generic Plugins
 
 These are single-file plugins (~20-40 lines) that call `generic_lang()` with external tool specs. When `tree-sitter-language-pack` is installed, they also get AST-powered analysis for free.

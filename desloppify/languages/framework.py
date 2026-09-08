@@ -6,8 +6,9 @@ Use this module from app/engine layers instead of importing
 
 from __future__ import annotations
 
-from desloppify.languages._framework.registry import discovery as _discovery_mod
-from desloppify.languages._framework.registry import state as registry_state
+from collections.abc import Callable
+from pathlib import Path
+
 from desloppify.languages._framework.base.types import (
     BoundaryRule,
     DetectorCoverageRecord,
@@ -20,16 +21,18 @@ from desloppify.languages._framework.base.types import (
     LangSecurityResult,
     ScanCoverageRecord,
 )
-from desloppify.languages._framework.runtime_support.runtime import (
-    LangRun,
-    LangRunOverrides,
-    make_lang_run,
-)
+from desloppify.languages._framework.registry import discovery as _discovery_mod
+from desloppify.languages._framework.registry import state as registry_state
 from desloppify.languages._framework.registry.resolution import (
     auto_detect_lang,
     available_langs,
     get_lang,
     make_lang_config,
+)
+from desloppify.languages._framework.runtime_support.runtime import (
+    LangRun,
+    LangRunOverrides,
+    make_lang_run,
 )
 
 load_all = _discovery_mod.load_all
@@ -53,6 +56,36 @@ def capability_report(cfg: LangRun) -> tuple[list[str], list[str]] | None:
     return _capability_report(cfg)
 
 
+def framework_convention_entry(scan_path: Path, lang: LangRun | None) -> Callable[[str], bool] | None:
+    """Predicate for framework convention entry points (Next.js pages, Nuxt handlers, ...)."""
+    from desloppify.languages._framework.frameworks import (
+        framework_convention_entry as _framework_convention_entry,
+    )
+
+    return _framework_convention_entry(scan_path, lang)
+
+
+def framework_review_guidance(scan_path: Path, lang: LangRun | None) -> dict[str, dict[str, object]]:
+    """Per-framework review guidance for frameworks detected in the scan."""
+    from desloppify.languages._framework.frameworks import (
+        framework_review_guidance as _framework_review_guidance,
+    )
+
+    return _framework_review_guidance(scan_path, lang)
+
+
+def merge_review_guidance(
+    lang_guidance: dict[str, object],
+    framework_guidance: dict[str, dict[str, object]],
+) -> dict[str, object]:
+    """Merge framework guidance into a copy of language guidance."""
+    from desloppify.languages._framework.frameworks import (
+        merge_review_guidance as _merge_review_guidance,
+    )
+
+    return _merge_review_guidance(lang_guidance, framework_guidance)
+
+
 def treesitter_coverage_prerequisites(language: str) -> list[DetectorCoverageStatus]:
     """Reduced-coverage entries when a language's tree-sitter grammar cannot load."""
     from desloppify.languages._framework.treesitter import (
@@ -64,14 +97,18 @@ def treesitter_coverage_prerequisites(language: str) -> list[DetectorCoverageSta
 
 def enable_parse_cache() -> None:
     """Enable tree-sitter parse cache via facade boundary."""
-    from desloppify.languages._framework.treesitter import enable_parse_cache as _enable_parse_cache
+    from desloppify.languages._framework.treesitter import (
+        enable_parse_cache as _enable_parse_cache,
+    )
 
     _enable_parse_cache()
 
 
 def disable_parse_cache() -> None:
     """Disable tree-sitter parse cache via facade boundary."""
-    from desloppify.languages._framework.treesitter import disable_parse_cache as _disable_parse_cache
+    from desloppify.languages._framework.treesitter import (
+        disable_parse_cache as _disable_parse_cache,
+    )
 
     _disable_parse_cache()
 
@@ -122,6 +159,9 @@ __all__ = [
     "clear_review_phase_prefetch",
     "disable_parse_cache",
     "enable_parse_cache",
+    "framework_convention_entry",
+    "framework_review_guidance",
+    "merge_review_guidance",
     "get_lang",
     "load_all",
     "make_lang_run",

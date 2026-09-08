@@ -8,19 +8,13 @@ from pathlib import Path
 from typing import Any
 
 from desloppify.base.discovery.file_paths import rel
-from desloppify.base.output.fallbacks import log_best_effort_failure
-
 from desloppify.base.discovery.source import (
-
     disable_file_cache,
-
     enable_file_cache,
-
     is_file_cache_enabled,
-
     read_file_text,
-
 )
+from desloppify.base.output.fallbacks import log_best_effort_failure
 from desloppify.intelligence.review._prepare.helpers import append_full_sweep_batch
 from desloppify.intelligence.review.context import (
     abs_path,
@@ -58,6 +52,10 @@ from desloppify.intelligence.review.selection import (
     count_stale,
     get_file_issues,
     select_files_for_review,
+)
+from desloppify.languages.framework import (
+    framework_review_guidance,
+    merge_review_guidance,
 )
 
 logger = logging.getLogger(__name__)
@@ -150,7 +148,8 @@ def prepare_review(
         config_dimensions=resolved_options.config_dimensions,
         default_dimensions=default_dims,
     )
-    lang_guide = get_lang_guidance(lang.name)
+    framework_guides = framework_review_guidance(path, lang)
+    lang_guide = merge_review_guidance(get_lang_guidance(lang.name), framework_guides)
     valid_dims = set(dimension_prompts)
     invalid_requested = [
         dim for dim in (resolved_options.dimensions or []) if dim not in valid_dims
@@ -169,6 +168,7 @@ def prepare_review(
             d: dimension_prompts[d] for d in dims if d in dimension_prompts
         },
         "lang_guidance": lang_guide,
+        "frameworks": sorted(framework_guides),
         "context": serialize_context(context),
         "system_prompt": system_prompt,
         "files": file_requests,

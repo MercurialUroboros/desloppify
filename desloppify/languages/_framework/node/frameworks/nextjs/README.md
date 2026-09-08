@@ -24,6 +24,9 @@ Current scope includes:
 - Next.js API misuse in wrong router contexts
 - Environment variable leakage in client modules
 - `next lint` integration as a framework quality gate (`next_lint` detector)
+- Convention entry points (`conventions.py`): App Router files (`page`, `layout`, `route`, ...)
+  and root `middleware`/`instrumentation` are excluded from orphaned-file detection through
+  the spec's `convention_entry` hook
 
 This module is intentionally heuristic-heavy (regex/file-structure based) so scans remain fast and robust without requiring full compiler semantics.
 

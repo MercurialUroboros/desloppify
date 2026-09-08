@@ -12,75 +12,6 @@ from desloppify.base.discovery.file_paths import count_lines
 
 _DUNDER_ALL_RE = re.compile(r"^__all__\s*[:=]", re.MULTILINE)
 
-# ---------------------------------------------------------------------------
-# Next.js App Router convention files
-# ---------------------------------------------------------------------------
-
-# Files that are entry points when inside an app/ directory
-_NEXTJS_APP_DIR_CONVENTIONS: set[str] = {
-    "page",
-    "layout",
-    "loading",
-    "error",
-    "not-found",
-    "global-error",
-    "route",
-    "template",
-    "default",
-    "opengraph-image",
-    "twitter-image",
-    "sitemap",
-    "robots",
-    "icon",
-    "apple-icon",
-}
-
-# Files that are entry points at the project root (or src/)
-_NEXTJS_ROOT_CONVENTIONS: set[str] = {
-    "middleware",
-    "instrumentation",
-    "instrumentation-client",
-}
-
-_NEXTJS_EXTENSIONS: set[str] = {".ts", ".tsx", ".js", ".jsx"}
-
-
-def _detect_nextjs_project(path: Path) -> bool:
-    """Return True if the scan root looks like a Next.js project."""
-    for name in ("next.config.js", "next.config.mjs", "next.config.ts"):
-        if (path / name).exists():
-            return True
-    return False
-
-
-def _is_nextjs_convention_entry(rel_path: str) -> bool:
-    """Return True if *rel_path* is a Next.js App Router convention file.
-
-    Checks:
-    - Files with convention names inside any ``app/`` directory segment
-    - Root-level convention files (middleware, instrumentation)
-    """
-    p = Path(rel_path)
-    ext = p.suffix
-    if ext not in _NEXTJS_EXTENSIONS:
-        return False
-
-    stem = p.stem
-    parts = p.parts
-
-    # Root-level conventions: middleware.ts, instrumentation.ts, etc.
-    # These can live at the project root or inside src/
-    if stem in _NEXTJS_ROOT_CONVENTIONS and len(parts) <= 2:
-        return True
-
-    # App directory conventions: any file inside an app/ segment
-    if stem in _NEXTJS_APP_DIR_CONVENTIONS:
-        if "app" in parts:
-            return True
-
-    return False
-
-
 @dataclass
 class OrphanedDetectionOptions:
     """Optional behavior flags for orphaned-file detection."""
@@ -89,7 +20,10 @@ class OrphanedDetectionOptions:
     extra_barrel_names: set[str] | None = None
     dynamic_import_finder: Callable[[Path, list[str]], set[str]] | None = None
     alias_resolver: Callable[[str], str] | None = None
-    detect_frameworks: bool = True
+    # Framework convention entry points (Next.js `app/page.tsx`, Nuxt
+    # `server/api/*.ts`, ...). Built by the languages layer from the detected
+    # frameworks; the engine stays framework-agnostic.
+    convention_entry: Callable[[str], bool] | None = None
 
 
 def _has_dunder_all(filepath: str) -> bool:
@@ -138,11 +72,7 @@ def detect_orphaned_files(
     all_barrel_names = resolved_options.extra_barrel_names or set()
     dynamic_import_finder = resolved_options.dynamic_import_finder
     alias_resolver = resolved_options.alias_resolver
-
-    # Framework convention detection
-    is_nextjs = (
-        resolved_options.detect_frameworks and _detect_nextjs_project(path)
-    )
+    convention_entry = resolved_options.convention_entry
 
     dynamic_targets = (
         dynamic_import_finder(path, extensions) if dynamic_import_finder else set()
@@ -163,7 +93,7 @@ def detect_orphaned_files(
         if basename in all_barrel_names:
             continue
 
-        if is_nextjs and _is_nextjs_convention_entry(r):
+        if convention_entry is not None and convention_entry(r):
             continue
 
         if dynamic_targets and _is_dynamically_imported(

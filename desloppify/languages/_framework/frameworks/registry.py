@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterable
-
 from .types import FrameworkSpec
 
 FRAMEWORK_SPECS: dict[str, FrameworkSpec] = {}
@@ -40,8 +38,12 @@ def _register_builtin_specs() -> None:
     if FRAMEWORK_SPECS:
         return
     from .specs.nextjs import NEXTJS_SPEC
+    from .specs.nuxt import NUXT_SPEC
+    from .specs.vue import VUE_SPEC
 
     register_framework_spec(NEXTJS_SPEC)
+    register_framework_spec(VUE_SPEC)
+    register_framework_spec(NUXT_SPEC)
 
 
 def ensure_builtin_specs_loaded() -> None:

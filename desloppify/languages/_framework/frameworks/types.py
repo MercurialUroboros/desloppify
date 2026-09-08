@@ -66,6 +66,14 @@ class FrameworkSpec:
     scanners: tuple[ScannerRule, ...] = ()
     tools: tuple[ToolIntegration, ...] = ()
 
+    # Package-relative path -> True when the file is an entry point by framework
+    # convention (auto-imported, file-routed, ...) and must not count as orphaned.
+    convention_entry: Callable[[str], bool] | None = None
+
+    # Framework-specific review guidance merged into review packets when present.
+    # Same shape as LangConfig.review_guidance (patterns/auth/naming/...).
+    review_guidance: dict[str, object] | None = None
+
 
 @dataclass(frozen=True)
 class EcosystemFrameworkDetection:

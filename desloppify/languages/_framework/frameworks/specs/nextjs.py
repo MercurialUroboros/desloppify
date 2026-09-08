@@ -8,6 +8,9 @@ from typing import Any
 
 from desloppify.engine._state.filtering import make_issue
 from desloppify.languages._framework.base.types import LangRuntimeContract
+from desloppify.languages._framework.node.frameworks.nextjs.conventions import (
+    is_nextjs_convention_entry,
+)
 from desloppify.languages._framework.node.frameworks.nextjs.info import (
     NextjsFrameworkInfo,
     nextjs_info_from_evidence,
@@ -539,6 +542,7 @@ NEXTJS_SPEC = FrameworkSpec(
         marker_dirs_imply_presence=False,
     ),
     excludes=(),
+    convention_entry=is_nextjs_convention_entry,
     scanners=NEXTJS_SCANNERS,
     tools=(
         ToolIntegration(

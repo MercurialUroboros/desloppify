@@ -4,26 +4,27 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import desloppify.languages.typescript.detectors.deps as deps_detector_mod
+import desloppify.languages.typescript.detectors.facade as facade_detector_mod
+import desloppify.languages.typescript.detectors.patterns.analysis as patterns_detector_mod
 from desloppify.base.discovery.file_paths import rel
 from desloppify.base.discovery.paths import get_src_path
 from desloppify.base.output.terminal import log
+from desloppify.engine._state.filtering import make_issue
 from desloppify.engine.detectors import coupling as coupling_detector_mod
 from desloppify.engine.detectors import graph as graph_detector_mod
 from desloppify.engine.detectors import naming as naming_detector_mod
 from desloppify.engine.detectors import orphaned as orphaned_detector_mod
 from desloppify.engine.detectors import single_use as single_use_detector_mod
-from desloppify.engine._state.filtering import make_issue
 from desloppify.engine.policy.zones import adjust_potential, filter_entries
 from desloppify.languages._framework.base.types import LangRuntimeContract
+from desloppify.languages._framework.frameworks import framework_convention_entry
 from desloppify.languages._framework.issue_factories import (
     make_cycle_issues,
     make_facade_issues,
     make_orphaned_issues,
     make_single_use_issues,
 )
-import desloppify.languages.typescript.detectors.deps as deps_detector_mod
-import desloppify.languages.typescript.detectors.facade as facade_detector_mod
-import desloppify.languages.typescript.detectors.patterns.analysis as patterns_detector_mod
 from desloppify.languages.typescript.phases_config import TS_SKIP_DIRS, TS_SKIP_NAMES
 from desloppify.state_io import Issue
 
@@ -129,6 +130,7 @@ def detect_cycles_and_orphans(
             extra_barrel_names=lang.barrel_names,
             dynamic_import_finder=deps_detector_mod.build_dynamic_import_targets,
             alias_resolver=deps_detector_mod.ts_alias_resolver,
+            convention_entry=framework_convention_entry(path, lang),
         ),
     )
     orphan_entries = filter_entries(lang.zone_map, orphan_entries, "orphaned")
