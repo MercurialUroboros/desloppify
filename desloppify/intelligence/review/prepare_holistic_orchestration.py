@@ -8,6 +8,10 @@ from typing import Any
 
 from desloppify.intelligence.review._context.models import HolisticContext
 from desloppify.intelligence.review._prepare.helpers import HOLISTIC_WORKFLOW
+from desloppify.languages.framework import (
+    framework_review_guidance,
+    merge_review_guidance,
+)
 
 from .prepare_holistic_batches import HolisticBatchAssemblyDependencies
 from .prepare_holistic_payload_parts import (
@@ -159,6 +163,12 @@ def prepare_holistic_review_payload(
         resolve_dimensions_fn=deps.resolve_dimensions_fn,
         get_lang_guidance_fn=deps.get_lang_guidance_fn,
     )
+    # Framework guidance (Vue, Nuxt, ...) rides along with the language guidance
+    # so blind reviewers judge against the idioms the codebase actually uses.
+    framework_guides = framework_review_guidance(path, lang)
+    lang_guide: object = dim_ctx.lang_guide
+    if framework_guides and isinstance(lang_guide, dict):
+        lang_guide = merge_review_guidance(lang_guide, framework_guides)
 
     include_full_sweep = bool(options.include_full_sweep)
     if options.dimensions:
@@ -188,7 +198,8 @@ def prepare_holistic_review_payload(
         "language": lang.name,
         "dimensions": dim_ctx.dims,
         "dimension_prompts": selected_prompts,
-        "lang_guidance": dim_ctx.lang_guide,
+        "lang_guidance": lang_guide,
+        "frameworks": sorted(framework_guides),
         "holistic_context": context.to_dict(),
         "review_context": deps.serialize_context_fn(review_ctx),
         "system_prompt": dim_ctx.system_prompt,

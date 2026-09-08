@@ -265,3 +265,67 @@ def test_merge_review_guidance_without_frameworks_is_a_copy():
     merged = merge_review_guidance(lang, {})
     assert merged == lang
     assert merged is not lang
+
+
+def test_holistic_review_payload_carries_framework_guidance(tmp_path, monkeypatch):
+    """`review --prepare` (holistic/blind packet) merges Vue+Nuxt guidance."""
+    from desloppify.intelligence.review import prepare_holistic_orchestration as orch
+
+    _write(tmp_path / "package.json", json.dumps({"dependencies": {"nuxt": "^4.0.0", "vue": "^3.5.0"}}))
+    captured: dict = {}
+
+    def fake_resolve(lang_name, options, **_kw):
+        from desloppify.intelligence.review.prepare_holistic_orchestration import _DimensionContext
+
+        return _DimensionContext(
+            dims=["naming"],
+            holistic_prompts={"naming": "p"},
+            per_file_prompts={"naming": "p"},
+            system_prompt="s",
+            lang_guide={"patterns": ["react thing"], "naming": "camelCase"},
+            invalid_requested=[],
+            invalid_default=[],
+        )
+
+    monkeypatch.setattr(orch, "_resolve_dimension_context", fake_resolve)
+    monkeypatch.setattr(orch, "_resolve_review_files", lambda *a, **k: ([], set()))
+
+    class Ctx:
+        codebase_stats = {"total_files": 0}
+
+        def to_dict(self):
+            return {}
+
+    monkeypatch.setattr(orch, "_build_review_contexts", lambda *a, **k: (Ctx(), object()))
+    monkeypatch.setattr(orch, "_build_selected_prompts", lambda *a, **k: {})
+
+    class Lang:
+        name = "typescript"
+        runtime_cache: dict = {}
+
+    from desloppify.intelligence.review.prepare import HolisticReviewPrepareOptions
+
+    class Deps:
+        is_file_cache_enabled_fn = lambda: True
+        enable_file_cache_fn = lambda: None
+        disable_file_cache_fn = lambda: None
+        build_holistic_context_fn = None
+        build_review_context_fn = None
+        load_dimensions_for_lang_fn = None
+        resolve_dimensions_fn = None
+        get_lang_guidance_fn = None
+        assemble_holistic_batches_fn = staticmethod(lambda *a, **k: [])
+        holistic_batch_deps = None
+        serialize_context_fn = staticmethod(lambda ctx: {})
+
+    with runtime_scope(RuntimeContext(project_root=tmp_path)):
+        payload = orch.prepare_holistic_review_payload(
+            tmp_path, Lang(), {}, HolisticReviewPrepareOptions(), deps=Deps()
+        )
+
+    assert payload["frameworks"] == ["nuxt", "vue"]
+    guide = payload["lang_guidance"]
+    assert guide["patterns"][0] == "react thing"
+    assert set(VUE_REVIEW_GUIDANCE["patterns"]) <= set(guide["patterns"])
+    assert set(NUXT_REVIEW_GUIDANCE["patterns"]) <= set(guide["patterns"])
+    assert set(guide["frameworks"]) == {"nuxt", "vue"}
