@@ -14,12 +14,12 @@ desloppify scans a codebase, scores it, and hands out a work queue. It detects t
 ## Workflow
 
 1. **Follow the project's own skill doc** for the phases: `.claude/skills/desloppify/SKILL.md` in the project (scan and review, plan, execute). If it is missing, read `~/Desktop/persona/desloppify/docs/SKILL.md` and `docs/CLAUDE.md` instead. Run commands from inside the project so state lands in its `.desloppify/`.
-2. **Load the framework skills before refactoring.** After `desloppify review --prepare`, `.desloppify/query.json` has `language`, `frameworks`, and `lang_guidance` (with a `refactoring` list and per-framework rules under `frameworks`). Before that, read `package.json` or `pyproject.toml`. Then load:
+2. **Load the framework skills before refactoring.** Decide from the manifest: `package.json` dependencies or `pyproject.toml`. (`.desloppify/query.json` is rewritten by every command; only right after `desloppify review --prepare` does it carry `frameworks` and `lang_guidance`, with a `refactoring` list.) Then load:
 
 | Detected | Load |
 |---|---|
 | nuxt | `nuxt`, `nuxt4-patterns`; `nuxt-ui` if `@nuxt/ui` is a dependency |
-| vue (also every Nuxt app) | `vue-best-practices`; install once with `npx skills add https://github.com/vuejs-ai/skills --skill vue-best-practices` (add `vue-pinia-best-practices`, `vue-router-best-practices`, `vue-testing-best-practices` when those libraries appear) |
+| vue (also every Nuxt app) | `vue-best-practices`. If it is not installed, run `npx skills add https://github.com/vuejs-ai/skills --skill vue-best-practices` (expected, one-time, network) and load it. Add `vue-pinia-best-practices`, `vue-router-best-practices`, `vue-testing-best-practices` when those libraries appear |
 | drizzle, supabase | `drizzle`, `supabase-postgres-best-practices` |
 | typescript | `typescript-advanced-types` for type-level findings, `coding-standards` for naming |
 | svelte | `svelte-code-writer` |
@@ -27,7 +27,8 @@ desloppify scans a codebase, scores it, and hands out a work queue. It detects t
 
 3. **Verify a finding before touching code.** `desloppify show <id>`, then open the file at the reported line. Detectors are heuristics: if the finding is wrong, `desloppify plan skip <id> --false-positive --note "<why>"`. If one detector is wrong across many files, fix the detector in `~/Desktop/persona/desloppify` (see below) instead of skipping dozens of items.
 4. **Fix, then resolve with a truthful attestation.** The `--attest` text must describe the actual change. Run the project's tests after each batch. A score that drops after a fix is normal; keep going.
-5. **Reviews with subagents** follow the Claude overlay in the project doc. The blind packet already carries the merged language and framework guidance, so give reviewers the packet path and nothing from this conversation.
+5. **Reviews with subagents** follow the Claude overlay in the project doc. The blind packet already carries the merged language and framework guidance, so give reviewers the packet path and nothing from this conversation. If `review --prepare` refuses because the objective backlog is not drained, work the objective queue first; do not force a rerun.
+6. **Queue views differ by design.** `desloppify next` is the single next action; `desloppify plan queue` lists the whole execution queue, including subjective-review items with no file. `desloppify show <detector>` lists everything open. Scans rewrite `scorecard.png`; pass `--no-badge` when you are not going to commit.
 
 ## When desloppify itself is wrong
 
@@ -48,3 +49,4 @@ Then rescan the project and compare a few findings against their source lines be
 - Skipping many findings from one detector as false positives without checking why.
 - Refactoring Vue or Nuxt code with React idioms (hooks, `use client`), or Python with TypeScript ones: load the matching skill first.
 - Running `desloppify scan --path ../other` from a different directory: state and paths end up in the wrong place.
+- Guessing subcommands: `desloppify <command> --help` first (`zone show`, not `zone list`).
