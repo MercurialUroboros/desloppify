@@ -7,7 +7,6 @@ import re
 from .helpers import (
     _code_text,
     _strip_ts_comments,
-    _track_brace_body,
 )
 
 _MONSTER_FUNCTION_LOC = 150
@@ -96,29 +95,83 @@ def _find_function_start(line: str, next_lines: list[str]) -> str | None:
     return None
 
 
-def _find_opening_brace_line(lines: list[str], start: int, *, window: int = 5) -> int | None:
+def _find_body_brace(
+    lines: list[str], start: int, *, window: int = 40,
+) -> tuple[int, int] | None:
+    """Return ``(line, col)`` of the ``{`` opening the body of the function at *start*.
+
+    Braces inside the parameter list (destructuring, inline object types, default
+    values) sit at paren depth > 0 and are skipped: the body brace is the first one
+    at depth 0. Strings and comments are blanked first so a quote in prose cannot
+    hide it.
+    """
+    depth = 0
     for idx in range(start, min(start + window, len(lines))):
-        if "{" in lines[idx]:
-            return idx
+        code = _code_text(lines[idx])
+        for col, ch in enumerate(code):
+            if ch == "(":
+                depth += 1
+            elif ch == ")":
+                depth = max(0, depth - 1)
+            elif ch == "{" and depth == 0:
+                return idx, col
     return None
+
+
+def _match_body_end(
+    lines: list[str], brace_line: int, brace_col: int, *, max_scan: int = 2000,
+) -> tuple[int, int] | None:
+    """Return ``(line, col)`` of the ``}`` matching the brace at ``(brace_line, brace_col)``."""
+    depth = 0
+    for idx in range(brace_line, min(brace_line + max_scan, len(lines))):
+        code = _code_text(lines[idx])
+        first = brace_col if idx == brace_line else 0
+        for col in range(first, len(code)):
+            ch = code[col]
+            if ch == "{":
+                depth += 1
+            elif ch == "}":
+                depth -= 1
+                if depth == 0:
+                    return idx, col
+    return None
+
+
+def _find_opening_brace_line(lines: list[str], start: int, *, window: int = 40) -> int | None:
+    """Line index of the brace opening the body of the function declared at *start*."""
+    pos = _find_body_brace(lines, start, window=window)
+    return None if pos is None else pos[0]
+
+
+def _function_body_span(
+    lines: list[str], start: int, *, max_scan: int = 2000,
+) -> tuple[int, int] | None:
+    """Return ``(body_brace_line, closing_brace_line)`` for the function at *start*."""
+    pos = _find_body_brace(lines, start)
+    if pos is None:
+        return None
+    end = _match_body_end(lines, pos[0], pos[1], max_scan=max_scan)
+    if end is None:
+        return None
+    return pos[0], end[0]
 
 
 def _extract_function_body(
     lines: list[str], start_line: int, *, max_scan: int = 2000,
 ) -> str | None:
     """Extract the inner body text of a function starting at start_line."""
-    brace_line = _find_opening_brace_line(lines, start_line, window=5)
-    if brace_line is None:
+    pos = _find_body_brace(lines, start_line)
+    if pos is None:
         return None
-    end_line = _track_brace_body(lines, brace_line, max_scan=max_scan)
-    if end_line is None:
+    brace_line, brace_col = pos
+    end = _match_body_end(lines, brace_line, brace_col, max_scan=max_scan)
+    if end is None:
         return None
-    body_text = "\n".join(lines[brace_line : end_line + 1])
-    first_brace = body_text.find("{")
-    last_brace = body_text.rfind("}")
-    if first_brace == -1 or last_brace == -1 or first_brace >= last_brace:
-        return None
-    return body_text[first_brace + 1 : last_brace]
+    end_line, end_col = end
+    if brace_line == end_line:
+        return lines[brace_line][brace_col + 1 : end_col]
+    parts = [lines[brace_line][brace_col + 1 :], *lines[brace_line + 1 : end_line], lines[end_line][:end_col]]
+    return "\n".join(parts)
 
 
 def _count_pattern_in_body(body: str, pattern: re.Pattern[str]) -> int:
@@ -161,6 +214,7 @@ __all__ = [
     "_compute_ts_cyclomatic_complexity",
     "_emit",
     "_extract_function_body",
+    "_function_body_span",
     "_find_function_start",
     "_find_opening_brace_line",
 ]

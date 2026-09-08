@@ -347,6 +347,44 @@ def test_async_with_await_after_block_comment_quote_not_flagged(tmp_path):
     assert "async_no_await" not in ids
 
 
+def test_async_with_object_typed_param_not_flagged(tmp_path):
+    """A brace in the parameter list is not the body: the await after it counts."""
+
+    _write(
+        tmp_path,
+        "ok.ts",
+        (
+            "async function act(row: Row, opts: {\n"
+            "  confirm: string\n"
+            "  path: string\n"
+            "}) {\n"
+            "  if (!confirm(opts.confirm)) return\n"
+            "  await fetch(opts.path)\n"
+            "}\n"
+            "async function send(move: { kind: 'pick' } | { kind: 'solve' }) {\n"
+            "  await post(move)\n"
+            "}\n"
+        ),
+    )
+    entries, _ = detect_smells(tmp_path)
+    ids = {e["id"] for e in entries}
+    assert "async_no_await" not in ids
+
+
+def test_monster_function_measured_from_body_brace(tmp_path):
+    """A one-line inline object type in the params does not end the function early."""
+
+    body = "  x += 1;\n" * 160
+    _write(
+        tmp_path,
+        "big.ts",
+        "function grow(opts: { by: number }) {\n" + body + "}\n",
+    )
+    entries, _ = detect_smells(tmp_path)
+    ids = {e["id"] for e in entries}
+    assert "monster_function" in ids
+
+
 def test_detect_console_error_no_throw(tmp_path):
     """Detects console.error not followed by throw or return."""
 

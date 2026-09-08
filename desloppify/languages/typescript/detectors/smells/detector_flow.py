@@ -27,12 +27,11 @@ from .detector_core import (
     _emit,
     _extract_function_body,
     _find_function_start,
-    _find_opening_brace_line,
+    _function_body_span,
 )
 from .helpers import (
     _code_text,
     _strip_ts_comments,
-    _track_brace_body,
 )
 
 
@@ -166,13 +165,10 @@ def _detect_monster_functions(ctx, smell_counts: dict[str, list[dict]]) -> None:
         name = _find_function_start(line, ctx.lines[index + 1 : index + 3])
         if not name:
             continue
-        brace_line = _find_opening_brace_line(ctx.lines, index, window=5)
-        if brace_line is None:
+        span = _function_body_span(ctx.lines, index, max_scan=2000)
+        if span is None:
             continue
-        end_line = _track_brace_body(ctx.lines, brace_line, max_scan=2000)
-        if end_line is None:
-            continue
-        loc = end_line - index + 1
+        loc = span[1] - index + 1
         if loc > _MONSTER_FUNCTION_LOC:
             _emit(smell_counts, "monster_function", ctx, index + 1, f"{name}() — {loc} LOC")
 
