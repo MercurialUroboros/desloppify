@@ -10,6 +10,16 @@ from pathlib import Path
 from desloppify.base.discovery.paths import get_project_root, get_src_path
 from desloppify.base.output.fallbacks import log_best_effort_failure
 from desloppify.base.text_utils import strip_c_style_comments
+from desloppify.languages._framework.node.js_text import (
+    blank_js_ts_comments as _blank_comments,
+)
+from desloppify.languages._framework.node.js_text import (
+    code_text as _code_text,
+)
+from desloppify.languages.typescript.detectors.deps.resolve import (
+    load_tsconfig_paths,
+    resolve_alias,
+)
 
 TS_IMPORT_RE = re.compile(
     r"""(?:\bfrom\s+|\bimport\s*\(\s*|\bimport\s+)(?:type\s+)?['\"]([^'\"]+)['\"]""",
@@ -100,6 +110,28 @@ def is_thin_nitro_handler(filepath: str, content: str) -> bool:
     return code_lines <= THIN_NITRO_HANDLER_MAX_CODE_LINES
 
 
+_LOGIC_KEYWORD_RE = re.compile(
+    r"\b(?:function|class|if|else|for|while|do|switch|case|return|throw|try|catch|await|yield|new)\b|=>"
+)
+_CALL_RE = re.compile(r"[A-Za-z_$][\w$]*\s*\(")
+_EXPORT_DEFAULT_RE = re.compile(r"\bexport\s+default\b")
+_NAMED_EXPORT_RE = re.compile(r"\bexport\s+(?!default\b|type\b|interface\b)")
+
+
+def is_data_only_module(content: str) -> bool:
+    """True for a *content entry*: literal data exported as the module's default.
+
+    Blog posts, fixtures and config tables look like ``const post = {...};
+    export default post`` — no functions, calls or control flow, and no named
+    runtime exports. Modules with named exports keep their existing treatment
+    (any runtime export counts as testable surface).
+    """
+    code = _code_text(_blank_comments(content))
+    if _LOGIC_KEYWORD_RE.search(code) or _CALL_RE.search(code):
+        return False
+    return _EXPORT_DEFAULT_RE.search(code) is not None and _NAMED_EXPORT_RE.search(code) is None
+
+
 def has_testable_logic(filepath: str, content: str) -> bool:
     """Return True if a TypeScript file has runtime logic worth testing."""
     if filepath.endswith(".d.ts"):
@@ -111,6 +143,10 @@ def has_testable_logic(filepath: str, content: str) -> bool:
     # Thin Nitro route handlers (Nuxt server/api, server/routes) are glue that
     # is covered by API/e2e tests; the logic they call lives in server/utils.
     if is_thin_nitro_handler(filepath, content):
+        return False
+    # Pure data modules (content entries, config tables, fixtures) have no
+    # behaviour to test.
+    if is_data_only_module(content):
         return False
 
     in_block_comment = False
@@ -189,14 +225,30 @@ def resolve_import_spec(
     spec: str, test_path: str, production_files: set[str]
 ) -> str | None:
     """Resolve a TypeScript import specifier to a production file path."""
-    if spec.startswith("@/") or spec.startswith("~/"):
-        base = get_src_path() / spec[2:]
-    elif spec.startswith("."):
+    bases: list[Path] = []
+    if spec.startswith("."):
         test_dir = Path(test_path).parent
-        base = (test_dir / spec).resolve()
+        bases.append((test_dir / spec).resolve())
     else:
-        return None
+        root = get_project_root()
+        aliased = resolve_alias(spec, load_tsconfig_paths(root), root)
+        if aliased is not None:
+            bases.append(aliased)
+        if spec.startswith("@/") or spec.startswith("~/"):
+            bases.append(get_src_path() / spec[2:])
+        if not bases:
+            return None
 
+    for base in bases:
+        resolved = _match_production_file(base, spec, test_path, production_files)
+        if resolved is not None:
+            return resolved
+    return None
+
+
+def _match_production_file(
+    base: Path, spec: str, test_path: str, production_files: set[str]
+) -> str | None:
     for ext in _TS_EXTENSIONS:
         candidate = str(Path(str(base) + ext))
         if candidate in production_files:

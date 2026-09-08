@@ -59,10 +59,17 @@ def get_default_scan_path(
     runtime: RuntimeContext | None = None,
     default_src: str | os.PathLike[str] | None = None,
 ) -> Path:
-    """Return the canonical default scan path for the active runtime."""
-    return get_project_root(project_root=project_root, runtime=runtime) / Path(
-        default_src or "src"
-    )
+    """Return the canonical default scan path for the active runtime.
+
+    The language's ``default_src`` (``src/`` for TypeScript) is used when that
+    directory exists; otherwise the project root is scanned, which is the
+    layout of Nuxt, Nitro and many monorepo packages.
+    """
+    root = get_project_root(project_root=project_root, runtime=runtime)
+    candidate = root / Path(default_src or "src")
+    if candidate.is_dir():
+        return candidate
+    return root
 
 
 def get_src_path(

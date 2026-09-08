@@ -9,17 +9,21 @@ from pathlib import Path
 from typing import Any
 
 from desloppify.base.discovery.file_paths import rel, resolve_path
-from desloppify.base.search.grep import grep_files
-from desloppify.base.output.terminal import colorize, print_table
+from desloppify.base.discovery.paths import get_project_root
 from desloppify.base.discovery.source import (
     find_source_files,
     find_ts_and_tsx_files,
+    read_file_text,
 )
-from desloppify.base.discovery.paths import get_project_root
+from desloppify.base.output.terminal import colorize, print_table
+from desloppify.base.search.grep import grep_files
 from desloppify.engine.detectors.graph import (
     detect_cycles,
     finalize_graph,
     get_coupling_score,
+)
+from desloppify.languages.typescript.detectors.deps.resolve import (
+    expand_import_meta_glob as _expand_import_meta_glob,
 )
 from desloppify.languages.typescript.detectors.deps.resolve import (
     find_tsconfig_root as _find_tsconfig_root,
@@ -105,7 +109,44 @@ def build_dep_graph(
                     source_root=project_root,
                 )
 
+    _add_glob_import_edges(
+        [*ts_files, *fw_files],
+        graph,
+        tsconfig_paths=tsconfig_paths,
+        tsconfig_root=tsconfig_root,
+        project_root=project_root,
+    )
+
     return finalize_graph(dict(graph))
+
+
+def _add_glob_import_edges(
+    files: list[str],
+    graph: dict[str, dict[str, Any]],
+    *,
+    tsconfig_paths: dict[str, str],
+    tsconfig_root: Path,
+    project_root: Path,
+) -> None:
+    """Add edges for modules loaded through ``import.meta.glob`` (Vite/Nuxt)."""
+    for filepath, _lineno, _content in grep_files(r"import\.meta\.glob", files):
+        content = read_file_text(resolve_path(filepath))
+        if content is None:
+            continue
+        source_resolved = resolve_path(filepath)
+        graph[source_resolved]  # ensure entry exists
+        for target in _expand_import_meta_glob(
+            content,
+            filepath,
+            tsconfig_paths,
+            tsconfig_root,
+            source_root=project_root,
+        ):
+            target_resolved = str(target)
+            if target_resolved == source_resolved:
+                continue
+            graph[source_resolved]["imports"].add(target_resolved)
+            graph[target_resolved]["importers"].add(source_resolved)
 
 
 def cmd_deps(args: Any) -> None:

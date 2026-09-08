@@ -727,8 +727,16 @@ class TestResolveDefaultPath:
 
         assert args.path == str(project_root.resolve())
 
-    def test_review_falls_back_to_lang_default_when_no_scan_path(self, monkeypatch):
+    @staticmethod
+    def _project_with_src(monkeypatch, tmp_path):
+        project_root = tmp_path / "proj"
+        (project_root / "src").mkdir(parents=True)
+        monkeypatch.setattr(cli_mod, "get_project_root", lambda: project_root)
+        return project_root
+
+    def test_review_falls_back_to_lang_default_when_no_scan_path(self, monkeypatch, tmp_path):
         """When state has no scan_path, review falls back to lang.default_src."""
+        project_root = self._project_with_src(monkeypatch, tmp_path)
         with (
             patch("desloppify.cli.state_path", return_value=None),
             patch("desloppify.cli.load_state", return_value={}),
@@ -738,10 +746,11 @@ class TestResolveDefaultPath:
             args = SimpleNamespace(command="review", path=None)
             _resolve_default_path(args)
 
-        assert args.path.endswith("src")
+        assert args.path == str((project_root / "src").resolve())
 
-    def test_review_falls_back_when_state_load_raises(self, monkeypatch):
+    def test_review_falls_back_when_state_load_raises(self, monkeypatch, tmp_path):
         """If state cannot be loaded, path resolution continues without crashing."""
+        project_root = self._project_with_src(monkeypatch, tmp_path)
         with (
             patch("desloppify.cli.state_path", return_value=None),
             patch("desloppify.cli.load_state", side_effect=OSError("no file")),
@@ -751,15 +760,28 @@ class TestResolveDefaultPath:
             args = SimpleNamespace(command="review", path=None)
             _resolve_default_path(args)  # must not raise
 
-        assert args.path.endswith("src")
+        assert args.path == str((project_root / "src").resolve())
 
-    def test_non_review_command_uses_lang_default(self):
+    def test_non_review_command_uses_lang_default(self, monkeypatch, tmp_path):
+        project_root = self._project_with_src(monkeypatch, tmp_path)
         with patch("desloppify.cli.resolve_lang") as mock_lang:
             mock_lang.return_value = SimpleNamespace(default_src="src")
             args = SimpleNamespace(command="scan", path=None)
             _resolve_default_path(args)
 
-        assert args.path.endswith("src")
+        assert args.path == str((project_root / "src").resolve())
+
+    def test_missing_default_src_falls_back_to_project_root(self, monkeypatch, tmp_path):
+        """Nuxt/Nitro layouts have no src/: scan the project root instead of failing."""
+        project_root = tmp_path / "nuxt-app"
+        (project_root / "app").mkdir(parents=True)
+        monkeypatch.setattr(cli_mod, "get_project_root", lambda: project_root)
+        with patch("desloppify.cli.resolve_lang") as mock_lang:
+            mock_lang.return_value = SimpleNamespace(default_src="src")
+            args = SimpleNamespace(command="scan", path=None)
+            _resolve_default_path(args)
+
+        assert args.path == str(project_root.resolve())
 
     def test_non_review_command_honors_language_default_src_exactly(
         self, monkeypatch, tmp_path
