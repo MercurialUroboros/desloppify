@@ -96,13 +96,16 @@ def _supersede_id(
         entry["note"] = override_note
 
     plan["superseded"][issue_id] = entry
+    plan.get("skipped", {}).pop(issue_id, None)
+    _detach_from_action_lists(plan, issue_id, now)
+    return True
 
-    # Remove from queue_order, skipped, promoted_ids, cluster issue_ids
+
+def _detach_from_action_lists(plan: PlanModel, issue_id: str, now: str) -> None:
+    """Remove an issue from queue_order, promoted_ids and cluster membership."""
     order: list[str] = plan.get("queue_order", [])
-    skipped: dict = plan.get("skipped", {})
     if issue_id in order:
         order.remove(issue_id)
-    skipped.pop(issue_id, None)
     prune_promoted_ids(plan, {issue_id})
     for cluster in plan.get("clusters", {}).values():
         ids = cluster.get("issue_ids", [])
@@ -114,8 +117,6 @@ def _supersede_id(
     if override and override.get("cluster"):
         override["cluster"] = None
         override["updated_at"] = now
-
-    return True
 
 
 def _prune_old_superseded(plan: PlanModel, now_dt: datetime) -> list[str]:
@@ -232,6 +233,14 @@ def _supersede_dead_references(
             result.changes += 1
 
 
+def _is_dismissed_by_skip(entry: object, issue: dict) -> bool:
+    """Return True when the issue's status is the one its skip entry produced."""
+    if not isinstance(entry, dict):
+        return False
+    target_status = skip_kind_state_status(str(entry.get("kind", "")))
+    return target_status is not None and issue.get("status") == target_status
+
+
 def _action_referenced_plan_issue_ids(plan: PlanModel) -> set[str]:
     referenced_ids: set[str] = set()
     referenced_ids.update(plan.get("queue_order", []))
@@ -254,9 +263,17 @@ def _supersede_nonactionable_action_references(
     result: ReconcileResult,
 ) -> None:
     issues = state.get("work_items") or state.get("issues", {})
+    skipped = plan.get("skipped", {})
     for fid in sorted(_action_referenced_plan_issue_ids(plan)):
         issue = issues.get(fid)
         if issue is None or issue.get("status") in _ALIVE_STATUSES:
+            continue
+        if _is_dismissed_by_skip(skipped.get(fid), issue):
+            # A skip (wontfix, false positive) left behind in a cluster is not
+            # dead: superseding it would drop the skip entry, and the next scan
+            # reopens the issue with nothing left to dismiss it again.
+            _detach_from_action_lists(plan, fid, now)
+            result.changes += 1
             continue
         if _supersede_id(plan, state, fid, now):
             result.superseded.append(fid)

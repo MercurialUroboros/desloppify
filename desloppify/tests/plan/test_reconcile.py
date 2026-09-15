@@ -2,9 +2,14 @@
 
 from __future__ import annotations
 
+import pytest
+
 from desloppify.engine._plan.operations.cluster import add_to_cluster, create_cluster
+from desloppify.engine._plan.operations.skip import skip_items
 from desloppify.engine._plan.scan_issue_reconcile import reconcile_plan_after_scan
 from desloppify.engine._plan.schema import empty_plan, ensure_plan_defaults
+from desloppify.engine._plan.skip_policy import skip_kind_state_status
+from desloppify.engine._state.merge_issues import upsert_issues
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -236,3 +241,89 @@ def test_reconcile_leaves_active_cluster_when_items_still_open():
 
     assert "my-cluster" not in result.clusters_completed
     assert plan["clusters"]["my-cluster"]["execution_status"] == "active"
+
+
+# ---------------------------------------------------------------------------
+# Skipped items still referenced by a cluster keep their skip entry
+# ---------------------------------------------------------------------------
+
+def _add_auto_cluster(plan: dict, name: str, issue_ids: list[str]) -> None:
+    """Build an auto-cluster the way auto_cluster_issues stores one."""
+    create_cluster(plan, "staging")
+    add_to_cluster(plan, "staging", issue_ids)
+    cluster = plan["clusters"].pop("staging")
+    cluster.update(name=name, auto=True, cluster_key="auto::logs")
+    plan["clusters"][name] = cluster
+    for fid in issue_ids:
+        plan["overrides"][fid]["cluster"] = name
+
+
+@pytest.mark.parametrize("kind", ["false_positive", "permanent"])
+def test_reconcile_keeps_skip_entry_of_clustered_dismissed_item(kind):
+    """A dismissed item left in a cluster is detached, not superseded."""
+    plan = _plan_with_queue("a", "b")
+    ensure_plan_defaults(plan)
+    _add_auto_cluster(plan, "auto/logs", ["a", "b"])
+    skip_items(plan, ["a"], kind=kind, note="not a defect", attestation="attest")
+    assert "a" in plan["clusters"]["auto/logs"]["issue_ids"]
+
+    state = _state_with_issues("b")
+    state["issues"]["a"] = {**state["issues"]["b"], "id": "a"}
+    state["issues"]["a"]["status"] = skip_kind_state_status(kind)
+
+    result = reconcile_plan_after_scan(plan, state)
+
+    assert "a" not in result.superseded
+    assert "a" not in plan["superseded"]
+    assert plan["skipped"]["a"]["kind"] == kind
+    assert "a" not in plan["clusters"]["auto/logs"]["issue_ids"]
+    assert plan["overrides"]["a"]["cluster"] is None
+    assert "b" in plan["clusters"]["auto/logs"]["issue_ids"]
+
+
+def test_reconcile_supersedes_skipped_item_resolved_as_fixed():
+    """A skip entry whose issue was later fixed is no longer a dismissal."""
+    plan = _plan_with_queue("a")
+    ensure_plan_defaults(plan)
+    create_cluster(plan, "my-cluster")
+    add_to_cluster(plan, "my-cluster", ["a"])
+    skip_items(plan, ["a"], kind="false_positive", attestation="attest")
+
+    state = _state_with_issues("a", status="fixed")
+    result = reconcile_plan_after_scan(plan, state)
+
+    assert "a" in result.superseded
+    assert "a" not in plan["skipped"]
+
+
+def test_false_positive_in_auto_cluster_stays_dismissed_across_two_scans():
+    """Auto-cluster, skip --false-positive, then two unchanged scans."""
+    raw = {
+        "id": "logs::scripts/newswire.ts::${verdict}",
+        "detector": "logs",
+        "file": "scripts/newswire.ts",
+        "tier": 1,
+        "confidence": "high",
+        "summary": "1 tagged logs [${verdict}]",
+        "detail": {"count": 1, "lines": [49]},
+    }
+    fid = raw["id"]
+    state = {"issues": {fid: {**raw, "status": "open"}}, "scan_count": 19}
+    issues = state["issues"]
+
+    plan = _plan_with_queue(fid)
+    ensure_plan_defaults(plan)
+    _add_auto_cluster(plan, "auto/logs", [fid])
+
+    skip_items(plan, [fid], kind="false_positive", note="CLI output", attestation="attest")
+    issues[fid]["status"] = "false_positive"
+
+    for scan_count in (20, 21):
+        state["scan_count"] = scan_count
+        now = f"2026-09-15T21:{scan_count}:00+00:00"
+        upsert_issues(issues, [dict(raw)], [], now, lang="typescript")
+        reconcile_plan_after_scan(plan, state)
+
+        assert fid in plan["skipped"], f"skip entry lost at scan {scan_count}"
+        assert fid not in plan["superseded"]
+        assert issues[fid]["status"] == "false_positive", f"reopened at scan {scan_count}"
