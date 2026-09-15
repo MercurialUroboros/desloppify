@@ -27,6 +27,23 @@ def _classify_convention(filename: str) -> str | None:
     return None
 
 
+def _fold_flat_lower(conventions: dict[str, list[str]]) -> dict[str, list[str]]:
+    """Merge single-word lowercase names into the kebab-case or snake_case group.
+
+    `api.ts` is valid kebab-case and valid snake_case, so it only conflicts
+    with PascalCase or camelCase. It joins whichever of the two separator
+    conventions the directory uses (the larger one when both are present).
+    """
+    flat = conventions.get("flat_lower")
+    separated = [name for name in ("kebab-case", "snake_case") if conventions.get(name)]
+    if not flat or not separated:
+        return conventions
+    target = max(separated, key=lambda name: len(conventions[name]))
+    folded = {name: files for name, files in conventions.items() if name != "flat_lower"}
+    folded[target] = [*folded[target], *flat]
+    return folded
+
+
 def detect_naming_inconsistencies(
     path: Path,
     file_finder,
@@ -59,7 +76,8 @@ def detect_naming_inconsistencies(
             dir_files[dirname][convention].append(filename)
 
     entries = []
-    for dirname, conventions in dir_files.items():
+    for dirname, raw_conventions in dir_files.items():
+        conventions = _fold_flat_lower(raw_conventions)
         if len(conventions) < 2:
             continue
 

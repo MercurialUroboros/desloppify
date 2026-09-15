@@ -217,3 +217,43 @@ class TestDetectNamingInconsistencies:
         )
         assert len(entries) == 2
         assert entries[0]["minority_count"] >= entries[1]["minority_count"]
+
+    def _detect(self, tmp_path, monkeypatch, filenames):
+        files = self._build_files(tmp_path, "lib", filenames)
+        monkeypatch.setattr(naming_mod, "rel", lambda p: os.path.relpath(p, tmp_path))
+        entries, _ = detect_naming_inconsistencies(tmp_path, file_finder=lambda p: files)
+        return entries
+
+    def test_flat_lower_is_compatible_with_kebab_case(self, tmp_path, monkeypatch):
+        flat = [f"word{chr(97 + i)}.ts" for i in range(9)]
+        kebab = [f"two-words-{i}.ts" for i in range(6)]
+        assert self._detect(tmp_path, monkeypatch, flat + kebab) == []
+
+    def test_flat_lower_is_compatible_with_snake_case(self, tmp_path, monkeypatch):
+        flat = [f"word{chr(97 + i)}.py" for i in range(9)]
+        snake = [f"two_words_{i}.py" for i in range(6)]
+        assert self._detect(tmp_path, monkeypatch, flat + snake) == []
+
+    def test_kebab_and_snake_mix_still_reported(self, tmp_path, monkeypatch):
+        kebab = [f"two-words-{i}.ts" for i in range(15)]
+        snake = [f"two_words_{i}.ts" for i in range(6)]
+        entries = self._detect(tmp_path, monkeypatch, kebab + snake)
+        assert len(entries) == 1
+        assert (entries[0]["majority"], entries[0]["minority"]) == ("kebab-case", "snake_case")
+
+    def test_kebab_and_snake_mix_with_flat_lower_still_reported(self, tmp_path, monkeypatch):
+        flat = [f"word{chr(97 + i)}.ts" for i in range(4)]
+        kebab = [f"two-words-{i}.ts" for i in range(15)]
+        snake = [f"two_words_{i}.ts" for i in range(6)]
+        entries = self._detect(tmp_path, monkeypatch, flat + kebab + snake)
+        assert len(entries) == 1
+        assert entries[0]["majority"] == "kebab-case"
+        assert entries[0]["majority_count"] == 19
+        assert entries[0]["minority"] == "snake_case"
+
+    def test_flat_lower_against_pascal_case_still_reported(self, tmp_path, monkeypatch):
+        flat = [f"word{chr(97 + i)}.ts" for i in range(15)]
+        pascal = [f"Comp{i}.ts" for i in range(6)]
+        entries = self._detect(tmp_path, monkeypatch, flat + pascal)
+        assert len(entries) == 1
+        assert (entries[0]["majority"], entries[0]["minority"]) == ("flat_lower", "PascalCase")
