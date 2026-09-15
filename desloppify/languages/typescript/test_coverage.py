@@ -152,6 +152,7 @@ def has_testable_logic(filepath: str, content: str) -> bool:
     in_block_comment = False
     brace_context = False  # True when inside type/interface/import/export braces
     brace_depth = 0
+    in_type_alias = False  # True while a multi-line `type X =` union continues
 
     for line in content.splitlines():
         stripped = line.strip()
@@ -175,12 +176,24 @@ def has_testable_logic(filepath: str, content: str) -> bool:
                 brace_depth = 0
             continue
 
+        if in_type_alias:
+            if stripped.startswith(("|", "&", "{")):
+                opens = stripped.count("{")
+                closes = stripped.count("}")
+                if opens > closes:
+                    brace_context = True
+                    brace_depth = opens - closes
+                continue
+            in_type_alias = False
+
         if re.match(r"(?:export\s+)?(?:type|interface)\s+\w+", stripped):
             opens = stripped.count("{")
             closes = stripped.count("}")
             if opens > closes:
                 brace_context = True
                 brace_depth = opens - closes
+            elif stripped.endswith("="):
+                in_type_alias = True
             continue
 
         if re.match(r"import\s+", stripped):

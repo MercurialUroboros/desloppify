@@ -145,3 +145,23 @@ def test_data_only_modules_have_no_testable_logic(tmp_path):
     # Named runtime exports keep the existing treatment (testable surface).
     assert is_data_only_module("export const VERSION = '1.0.0'\n") is False
     assert is_data_only_module("export const TABLE = { a: 1 }\nexport default TABLE\n") is False
+
+
+def test_multiline_union_type_alias_is_not_logic():
+    content = (
+        "import type { Cell } from './crossword'\n"
+        "\n"
+        "export type FillResponse =\n"
+        "  | { ok: false, reason: 'invalid' }\n"
+        "  | {\n"
+        "    ok: true\n"
+        "    cells: Cell[]\n"
+        "  }\n"
+        "\n"
+        "export type Density =\n"
+        "  | 'sparse'\n"
+        "  | 'dense'\n"
+    )
+    assert has_testable_logic("shared/types/fill.ts", content) is False
+    # The alias ends where the union does: a runtime line after it still counts.
+    assert has_testable_logic("shared/types/fill.ts", content + "export const N = count()\n") is True

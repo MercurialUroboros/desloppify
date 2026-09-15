@@ -34,6 +34,8 @@ from .helpers import (
     _strip_ts_comments,
 )
 
+_HOOK_NAME_RE = re.compile(r"use[A-Z]")
+
 
 def _detect_async_no_await(ctx, smell_counts: dict[str, list[dict]]) -> None:
     """Find async functions that do not use await."""
@@ -177,7 +179,9 @@ def _detect_nested_closures(ctx, smell_counts: dict[str, list[dict]]) -> None:
     """Find functions with many nested closure definitions."""
     for index, line in enumerate(ctx.lines):
         name = _find_function_start(line, ctx.lines[index + 1 : index + 3])
-        if not name:
+        # Vue composables and React hooks are closure factories: handlers that
+        # capture the hook's own refs cannot move to module level.
+        if not name or _HOOK_NAME_RE.match(name):
             continue
         body = _extract_function_body(ctx.lines, index)
         if body is None:
