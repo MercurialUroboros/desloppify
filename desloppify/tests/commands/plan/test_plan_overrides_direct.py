@@ -946,7 +946,11 @@ def test_cmd_plan_backlog_reconciles_after_invalidation(monkeypatch) -> None:
 
 def test_cmd_plan_reopen_reconciles_after_invalidation(monkeypatch) -> None:
     state_data = {"config": {"target_strict_score": 94}}
-    plan = {"queue_order": [], "skipped": {}}
+    plan = {
+        "queue_order": [],
+        "skipped": {},
+        "superseded": {"i1": {"original_id": "i1", "status": "superseded"}},
+    }
     seen: list[tuple[str, object]] = []
 
     monkeypatch.setattr(
@@ -997,6 +1001,8 @@ def test_cmd_plan_reopen_reconciles_after_invalidation(monkeypatch) -> None:
 
     assert ("target", {"target_strict_score": 94}) in seen
     assert ("reconcile", state_data, 94.0) in seen
+    assert plan["queue_order"] == ["i1"]
+    assert "i1" not in plan["superseded"]
     assert ("emit", "execute") in seen
 
 

@@ -15,6 +15,18 @@ def _remove_id_from_lists(plan: PlanModel, issue_id: str) -> None:
     skipped.pop(issue_id, None)
 
 
+def clear_superseded(plan: PlanModel, issue_ids: list[str]) -> None:
+    """Drop supersede entries for ids the user just acted on.
+
+    A supersede marks scan drift. An explicit skip, unskip, move or reopen is
+    newer information about the id, and a stale entry left behind makes the
+    next reconcile strip the record that action wrote.
+    """
+    superseded = plan.get("superseded", {})
+    for issue_id in issue_ids:
+        superseded.pop(issue_id, None)
+
+
 def _resolve_position(
     order: list[str],
     position: str,
@@ -114,6 +126,7 @@ def move_items(
     skipped: dict[str, SkipEntry] = plan.get("skipped", {})
     for fid in issue_ids:
         skipped.pop(fid, None)
+    clear_superseded(plan, issue_ids)
 
     # Remove from current position in order.
     for fid in issue_ids:
@@ -135,4 +148,4 @@ def move_items(
     return len(issue_ids)
 
 
-__all__ = ["move_items", "_remove_id_from_lists"]
+__all__ = ["clear_superseded", "move_items", "_remove_id_from_lists"]

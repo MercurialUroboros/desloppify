@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from desloppify.engine._plan.operations.cluster import (
     add_to_cluster,
     create_cluster,
@@ -489,3 +491,52 @@ def test_append_log_entry_with_cluster_and_detail():
     assert entry["cluster_name"] == "auto/unused"
     assert entry["detail"] == {"method": "bulk"}
     assert entry["actor"] == "agent"
+
+
+# ---------------------------------------------------------------------------
+# User actions clear a stale supersede entry
+# ---------------------------------------------------------------------------
+
+def _superseded_entry(fid: str) -> dict:
+    return {
+        "original_id": fid,
+        "status": "superseded",
+        "superseded_at": "2026-09-15T21:28:05+00:00",
+    }
+
+
+@pytest.mark.parametrize("kind", ["temporary", "permanent", "false_positive"])
+def test_skip_clears_superseded_entry(kind):
+    plan = _plan_with_queue()
+    ensure_plan_defaults(plan)
+    plan["superseded"]["a"] = _superseded_entry("a")
+
+    skip_items(plan, ["a"], kind=kind)
+
+    assert plan["skipped"]["a"]["kind"] == kind
+    assert "a" not in plan["superseded"]
+
+
+def test_unskip_clears_superseded_entry_and_item_stays_queued():
+    plan = _plan_with_queue()
+    ensure_plan_defaults(plan)
+    plan["skipped"]["a"] = {"issue_id": "a", "kind": "temporary"}
+    plan["superseded"]["a"] = _superseded_entry("a")
+
+    unskip_items(plan, ["a"])
+    assert "a" not in plan["superseded"]
+
+    reconcile_plan_after_scan(plan, _state_with_issues("a"))
+    assert "a" in plan["queue_order"]
+
+
+def test_move_clears_superseded_entry_and_item_stays_queued():
+    plan = _plan_with_queue("b")
+    ensure_plan_defaults(plan)
+    plan["superseded"]["a"] = _superseded_entry("a")
+
+    move_items(plan, ["a"], "top")
+    assert "a" not in plan["superseded"]
+
+    reconcile_plan_after_scan(plan, _state_with_issues("a", "b"))
+    assert plan["queue_order"][0] == "a"

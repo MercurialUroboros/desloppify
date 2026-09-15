@@ -114,9 +114,13 @@ def cmd_plan_reopen(args: argparse.Namespace) -> None:
     purge_uncommitted_ids(plan, reopened)
 
     skipped = plan.get("skipped", {})
+    superseded = plan.get("superseded", {})
     count = 0
     order = set(plan.get("queue_order", []))
     for fid in reopened:
+        # A stale supersede entry would pull the reopened id out of the queue
+        # again on the next scan.
+        superseded.pop(fid, None)
         if fid in skipped:
             skipped.pop(fid)
             count += 1

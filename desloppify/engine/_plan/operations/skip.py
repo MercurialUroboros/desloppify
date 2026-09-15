@@ -5,7 +5,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from desloppify.engine._plan.operations.lifecycle import clear_focus_if_cluster_empty
-from desloppify.engine._plan.operations.queue import _remove_id_from_lists
+from desloppify.engine._plan.operations.queue import (
+    _remove_id_from_lists,
+    clear_superseded,
+)
 from desloppify.engine._plan.promoted_ids import prune_promoted_ids
 from desloppify.engine._plan.schema import PlanModel, SkipEntry, ensure_plan_defaults
 from desloppify.engine._plan.skip_policy import skip_kind_needs_state_reopen
@@ -80,6 +83,7 @@ def skip_items(
     skipped: dict[str, SkipEntry] = plan["skipped"]
     skip_set = set(issue_ids)
     prune_promoted_ids(plan, skip_set)
+    clear_superseded(plan, issue_ids)
     for fid in issue_ids:
         _remove_id_from_lists(plan, fid)
         skipped[fid] = {
@@ -135,6 +139,7 @@ def unskip_items(
             protected_kept.append(fid)
             continue
         skipped.pop(fid)
+        clear_superseded(plan, [fid])
         if skip_kind_needs_state_reopen(str(entry.get("kind", ""))):
             need_reopen.append(fid)
         if fid not in plan["queue_order"]:

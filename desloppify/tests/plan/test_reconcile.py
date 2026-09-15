@@ -327,3 +327,66 @@ def test_false_positive_in_auto_cluster_stays_dismissed_across_two_scans():
         assert fid in plan["skipped"], f"skip entry lost at scan {scan_count}"
         assert fid not in plan["superseded"]
         assert issues[fid]["status"] == "false_positive", f"reopened at scan {scan_count}"
+
+
+# ---------------------------------------------------------------------------
+# A user skip recorded after a supersede outlives the next scan
+# ---------------------------------------------------------------------------
+
+def _logs_raw_issue() -> dict:
+    return {
+        "id": "logs::scripts/newswire.ts::${verdict}",
+        "detector": "logs",
+        "file": "scripts/newswire.ts",
+        "tier": 1,
+        "confidence": "high",
+        "summary": "1 tagged logs [${verdict}]",
+        "detail": {"count": 1, "lines": [49]},
+    }
+
+
+@pytest.mark.parametrize("kind", ["false_positive", "permanent"])
+def test_skip_after_supersede_survives_next_scan(kind):
+    """Superseded by an earlier reconcile, skipped again, then one scan."""
+    raw = _logs_raw_issue()
+    fid = raw["id"]
+    dismissed_status = skip_kind_state_status(kind)
+    state = {"issues": {fid: {**raw, "status": dismissed_status}}, "scan_count": 20}
+    issues = state["issues"]
+
+    # The status was set without a skip entry, so reconcile supersedes the id.
+    plan = _plan_with_queue(fid)
+    ensure_plan_defaults(plan)
+    first = reconcile_plan_after_scan(plan, state)
+    assert fid in first.superseded
+    assert fid in plan["superseded"]
+
+    skip_items(plan, [fid], kind=kind, note="CLI output", attestation="attest")
+    issues[fid]["status"] = dismissed_status
+
+    state["scan_count"] = 21
+    upsert_issues(issues, [dict(raw)], [], "2026-09-15T21:50:00+00:00", lang="typescript")
+    reconcile_plan_after_scan(plan, state)
+
+    assert plan["skipped"][fid]["kind"] == kind
+    assert fid not in plan["superseded"]
+    assert issues[fid]["status"] == dismissed_status
+
+
+def test_genuinely_superseded_id_is_still_pruned_from_plan_lists():
+    """With no newer user action, a superseded id's leftover references go."""
+    plan = _plan_with_queue("a", "b")
+    ensure_plan_defaults(plan)
+    plan["skipped"]["a"] = {"issue_id": "a", "kind": "temporary"}
+    plan["superseded"]["a"] = {
+        "original_id": "a",
+        "status": "superseded",
+        "superseded_at": "2026-09-15T21:28:05+00:00",
+    }
+    state = _state_with_issues("a", "b")
+
+    reconcile_plan_after_scan(plan, state)
+
+    assert "a" not in plan["queue_order"]
+    assert "a" not in plan["skipped"]
+    assert "a" in plan["superseded"]
