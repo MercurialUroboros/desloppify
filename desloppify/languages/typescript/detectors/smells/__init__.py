@@ -91,7 +91,7 @@ def detect_smells(path: Path) -> tuple[list[dict], int]:
                     continue
                 if _ts_match_is_in_string(line, m.start()):
                     continue
-                if check["id"] == "hardcoded_url" and re.match(
+                if check["id"] in ("hardcoded_url", "magic_number") and re.match(
                     r"^(?:export\s+)?(?:const|let|var)\s+[A-Z_][A-Z0-9_]*\s*=",
                     line.strip(),
                 ):
