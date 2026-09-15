@@ -23,7 +23,7 @@ _PRECEDING_SKIP_PATTERNS = re.compile(
     r"componentDidCatch|import\.meta\.env\.DEV|process\.env\.NODE_ENV"
 )
 _HANDLED_RE = re.compile(
-    r"\b(?:throw|return)\b|toast\(|normalizeAndPresentError\(|presentError\(|rethrow"
+    r"\b(?:throw|return)\b|process\.exit\(|toast\(|normalizeAndPresentError\(|presentError\(|rethrow"
 )
 
 _FUNC_RE = re.compile(r"\bfunction\s*[\w(]")
