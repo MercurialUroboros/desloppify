@@ -50,8 +50,9 @@ def finalize_graph(graph: dict[str, dict[str, Any]]) -> dict[str, dict[str, Any]
         for v in graph.values():
             v["imports"] = v["imports"] - excluded_keys
             v["importers"] = v["importers"] - excluded_keys
-            if "deferred_imports" in v:
-                v["deferred_imports"] = v["deferred_imports"] - excluded_keys
+            for key in ("deferred_imports", "type_imports"):
+                if key in v:
+                    v[key] = v[key] - excluded_keys
 
     for v in graph.values():
         v["import_count"] = len(v["imports"])
@@ -66,6 +67,8 @@ def detect_cycles(
 
     When skip_deferred=True (default), deferred imports (inside functions) are
     excluded from cycle detection — they can't cause circular import errors.
+    Type-only imports (``type_imports``) are always excluded: the compiler
+    erases them, so they never exist at runtime.
 
     Returns (entries, total_files). Each entry: {"files": [abs_paths], "length": int}
     """
@@ -81,6 +84,7 @@ def detect_cycles(
         imports = node.get("imports", set())
         if skip_deferred:
             imports = imports - node.get("deferred_imports", set())
+        imports = imports - node.get("type_imports", set())
         return [w for w in imports if w in graph]
 
     for root in graph:

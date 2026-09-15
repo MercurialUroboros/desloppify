@@ -156,6 +156,19 @@ class TestDetectCycles:
         assert len(entries) == 1
         assert sorted(entries[0]["files"]) == ["a.py", "b.py"]
 
+    def test_type_imports_never_close_a_cycle(self):
+        """Type-only edges are erased at compile time, whatever skip_deferred says."""
+        graph = _make_graph(
+            {
+                "a.ts": {"b.ts"},
+                "b.ts": {"a.ts"},
+            }
+        )
+        graph["b.ts"]["type_imports"] = {"a.ts"}
+
+        assert detect_cycles(graph, skip_deferred=True)[0] == []
+        assert detect_cycles(graph, skip_deferred=False)[0] == []
+
     def test_edges_only_within_graph(self):
         """Edges pointing to nodes not in the graph should be ignored."""
         graph = _make_graph(

@@ -307,8 +307,13 @@ def resolve_module(
     source_resolved: str,
     *,
     source_root: Path | None = None,
+    type_only: bool = False,
 ) -> None:
-    """Resolve an import specifier and add edges to the graph."""
+    """Resolve an import specifier and add edges to the graph.
+
+    A ``type_only`` edge is also recorded in ``type_imports`` unless the same
+    target is already a value import; a value edge always clears it there.
+    """
     target: Path | None = None
     if module_path.startswith("."):
         relative_root = source_root or project_root
@@ -327,6 +332,12 @@ def resolve_module(
     for candidate in iter_resolve_candidates(target):
         if candidate.is_file():
             target_resolved = str(candidate)
-            graph[source_resolved]["imports"].add(target_resolved)
+            node = graph[source_resolved]
+            type_imports = node.setdefault("type_imports", set())
+            if not type_only:
+                type_imports.discard(target_resolved)
+            elif target_resolved not in node["imports"]:
+                type_imports.add(target_resolved)
+            node["imports"].add(target_resolved)
             graph[target_resolved]["importers"].add(source_resolved)
             break
