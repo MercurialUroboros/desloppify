@@ -259,3 +259,28 @@ def test_variants_contain_correct_detail():
     assert a_variant["line"] == 10
     assert a_variant["params"] == ["data"]
     assert a_variant["param_count"] == 1
+
+
+def test_file_private_functions_are_skipped():
+    """Non-exported TS/Vue functions sharing a name are independent, not a drifting API."""
+    functions = [
+        _fn("send", "a.vue", ["body"]),
+        _fn("send", "b.vue", []),
+        _fn("send", "c.ts", ["id", "text"]),
+    ]
+    for fn in functions:
+        fn.exported = False
+    entries, _total = detect_signature_variance(functions)
+    assert entries == []
+
+
+def test_exported_functions_still_flagged():
+    functions = [
+        _fn("send", "a.ts", ["body"]),
+        _fn("send", "b.ts", []),
+        _fn("send", "c.ts", ["id", "text"]),
+    ]
+    for fn in functions:
+        fn.exported = True
+    entries, _total = detect_signature_variance(functions)
+    assert [e["name"] for e in entries] == ["send"]

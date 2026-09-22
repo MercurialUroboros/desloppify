@@ -98,6 +98,8 @@ def detect_signature_variance(
         is_phase_pattern = normalized_name.startswith("phase_")
         if fn.name.startswith("_") and not fn.name.startswith("__") and not is_phase_pattern:
             continue  # Skip private functions — expected to be independent
+        if fn.exported is False:
+            continue  # File-private in a language with explicit exports
         if fn.name in _ALLOWLIST:
             continue
         if fn.name.startswith("test_"):

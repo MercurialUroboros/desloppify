@@ -180,6 +180,7 @@ def extract_ts_functions(filepath: str) -> list[FunctionInfo]:
                             usedforsecurity=False,
                         ).hexdigest(),
                         params=params,
+                        exported=lines[line_idx].lstrip().startswith("export"),
                     )
                 )
             line_idx = end_line + 1

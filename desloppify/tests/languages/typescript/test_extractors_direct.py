@@ -76,3 +76,15 @@ def test_component_wrapper_entrypoints_delegate_to_components_module(monkeypatch
         ("tsx_passthrough_pattern", "Comp"),
         ("detect_passthrough_components", path),
     ]
+
+
+def test_extract_ts_functions_marks_exported(tmp_path: Path) -> None:
+    from desloppify.languages.typescript.extractors_functions import extract_ts_functions
+
+    source = tmp_path / "mod.ts"
+    source.write_text(
+        "export function shared(a: number) {\n  const b = a\n  return b + 1\n}\n"
+        "function local(a: number) {\n  const b = a\n  return b + 2\n}\n"
+    )
+    found = {fn.name: fn.exported for fn in extract_ts_functions(str(source))}
+    assert found == {"shared": True, "local": False}

@@ -20,6 +20,9 @@ class FunctionInfo:
     body_hash: str = ""
     params: list[str] = field(default_factory=list)
     return_annotation: str | None = None
+    # None when the extractor cannot tell; False for a function private to its
+    # file (a TS module without `export`, a Vue <script setup>).
+    exported: bool | None = None
 
 
 @dataclass
