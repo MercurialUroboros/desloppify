@@ -37,3 +37,16 @@ def test_plain_function_with_the_same_closures_is_flagged():
 
 def test_lowercase_after_use_is_not_a_hook():
     assert len(_smells("export function useless(opts: Options) " + _BODY)) == 1
+
+
+def test_empty_noop_callbacks_are_not_closures():
+    source = """export async function clear(page: Page) {
+  await a().catch(() => {})
+  await b().catch(() => {})
+  await c().catch(() => { })
+  const run = async () => {
+    await d()
+  }
+}
+"""
+    assert _smells(source) == []

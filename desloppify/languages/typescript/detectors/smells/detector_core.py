@@ -27,7 +27,8 @@ _HANDLED_RE = re.compile(
 )
 
 _FUNC_RE = re.compile(r"\bfunction\s*[\w(]")
-_ARROW_RE = re.compile(r"=>\s*\{")
+# An empty `() => {}` is a no-op callback, not a closure worth hoisting.
+_ARROW_RE = re.compile(r"=>\s*\{(?!\s*\})")
 
 _TS_BRANCH_PATTERNS = (
     re.compile(r"\bif\s*\("),
