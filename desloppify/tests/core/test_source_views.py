@@ -142,6 +142,20 @@ def test_tagged_logs_detected_inside_vue_script(tmp_path: Path):
     assert ("plain.ts", 1) in found
 
 
+def test_tagged_warn_in_catch_handler_is_not_a_debug_log(tmp_path: Path):
+    from desloppify.languages.typescript.detectors.logs import detect_logs
+
+    (tmp_path / "ops.ts").write_text(
+        "try {\n  run()\n}\ncatch (err) {\n  console.warn('[ops] failed', err)\n}\n"
+        "load().catch((err) => {\n  console.warn('[ops] read failed', err)\n})\n"
+        "console.warn('[ops] loose')\n"
+        "try { run() } catch { x() }\nconsole.log('[ops] after')\n"
+    )
+    with runtime_scope(RuntimeContext(project_root=tmp_path)):
+        result = detect_logs(tmp_path)
+    assert sorted(e["line"] for e in result.entries) == [10, 12]
+
+
 @pytest.mark.skipif(
     not __import__("desloppify.languages._framework.treesitter", fromlist=["is_available"]).is_available(),
     reason="tree-sitter-language-pack not installed",

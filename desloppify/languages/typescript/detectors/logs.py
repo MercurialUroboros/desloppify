@@ -26,6 +26,8 @@ logger = logging.getLogger(__name__)
 
 
 TAG_EXTRACT_RE = re.compile(r"\[([^\]]+)\]")
+_WARN_RE = re.compile(r"console\.warn\s*\(")
+_CATCH_RE = re.compile(r"\bcatch\b")
 
 # Pattern 1: Direct and emoji-prefixed tags
 _PAT1 = r"console\.(log|warn|info|debug)\s*\(\s*['\"`].{0,4}\["
@@ -43,11 +45,14 @@ def detect_logs(path: Path) -> DetectorResult[dict]:
 
     seen: set[tuple[str, int]] = set()
     entries = []
+    lines_by_file: dict[str, list[str]] = {}
     for filepath, lineno, content in hits1 + hits2:
         key = (filepath, lineno)
         if key in seen:
             continue
         seen.add(key)
+        if _WARN_RE.search(content) and _in_catch_handler(filepath, lineno, lines_by_file):
+            continue
         tag_match = TAG_EXTRACT_RE.search(content)
         tag = tag_match.group(1) if tag_match else "unknown"
         entries.append(
@@ -55,6 +60,21 @@ def detect_logs(path: Path) -> DetectorResult[dict]:
         )
 
     return DetectorResult(entries=entries, population_kind="files", population_size=total_files)
+
+
+def _in_catch_handler(
+    filepath: str, lineno: int, cache: dict[str, list[str]]
+) -> bool:
+    """A tagged console.warn opening a catch handler is an operational log, not debug output."""
+    if filepath not in cache:
+        try:
+            cache[filepath] = Path(resolve_path(filepath)).read_text(errors="replace").splitlines()
+        except OSError:
+            cache[filepath] = []
+    previous = next(
+        (line for line in reversed(cache[filepath][: lineno - 1]) if line.strip()), ""
+    )
+    return bool(_CATCH_RE.search(previous))
 
 
 def cmd_logs(args: argparse.Namespace) -> None:
