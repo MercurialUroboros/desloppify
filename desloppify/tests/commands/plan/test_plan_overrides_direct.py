@@ -55,6 +55,10 @@ def test_override_resolve_helpers_cover_synthetic_split_and_blocked_stages(
     assert resolve_helpers_mod.resolve_synthetic_ids(
         ["triage::reflect", "unused::src/a.py::X"]
     ) == (["triage::reflect"], ["unused::src/a.py::X"])
+    # Strategy items live in state, so they resolve on the real path.
+    assert resolve_helpers_mod.split_synthetic_patterns(
+        ["strategy::rework-loop", "workflow::create-plan"]
+    ) == (["workflow::create-plan"], ["strategy::rework-loop"])
 
     plan = {
         "queue_order": ["triage::observe", "triage::reflect", "triage::organize"],

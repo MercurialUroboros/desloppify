@@ -6,6 +6,7 @@ from desloppify.app.commands.plan.shared.cluster_membership import cluster_issue
 from desloppify.base.output.terminal import colorize
 from desloppify.engine._plan.constants import (
     confirmed_triage_stage_names,
+    STRATEGY_PREFIX,
     is_synthetic_id,
     recorded_unconfirmed_triage_stage_names,
 )
@@ -65,9 +66,14 @@ def print_cluster_guard(cluster_name: str, issue_ids: list[str], state: dict) ->
         )
     )
 def split_synthetic_patterns(patterns: list[str]) -> tuple[list[str], list[str]]:
-    """Partition synthetic workflow/triage patterns from real issue patterns."""
-    synthetic = [pattern for pattern in patterns if is_synthetic_id(pattern)]
-    remaining = [pattern for pattern in patterns if not is_synthetic_id(pattern)]
+    """Partition synthetic workflow/triage patterns from real issue patterns.
+
+    Strategy items are queue synthetics but also state work items, so they take
+    the real path: resolving only the plan entry leaves the state open and the
+    next queue build brings them back.
+    """
+    synthetic = [p for p in patterns if is_synthetic_id(p) and not p.startswith(STRATEGY_PREFIX)]
+    remaining = [p for p in patterns if p not in synthetic]
     return synthetic, remaining
 
 
