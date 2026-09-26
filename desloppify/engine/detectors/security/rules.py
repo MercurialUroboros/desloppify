@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from typing import Any
 
@@ -178,12 +179,19 @@ def _weak_crypto_entries(
     return entries
 
 
+# A bracketed log tag that opens a string literal ("[password-reset] ...")
+# names the subsystem, not a logged value.
+_LOG_TAG_RE = re.compile(r"""(["'`])\[[^\]\n]*\]""")
+
+
 def _sensitive_log_entries(
     filepath: str,
     line_num: int,
     line: str,
 ) -> list[dict[str, Any]]:
-    if not (_LOG_CALLS.search(line) and _SENSITIVE_IN_LOG.search(line)):
+    if not _LOG_CALLS.search(line):
+        return []
+    if not _SENSITIVE_IN_LOG.search(_LOG_TAG_RE.sub(r"\1", line)):
         return []
     return [
         make_security_entry(

@@ -104,6 +104,26 @@ def test_sensitive_log_entries_detect_secret_logs():
     assert issues[0]["detail"]["kind"] == "log_sensitive"
 
 
+def test_sensitive_log_entries_ignore_bracketed_log_tag():
+    issues = rules_mod._sensitive_log_entries(
+        filepath="server/api/reset.ts",
+        line_num=84,
+        line='console.error("[password-reset] email send failed:", message);',
+    )
+
+    assert issues == []
+
+
+def test_sensitive_log_entries_still_flag_value_after_tag():
+    issues = rules_mod._sensitive_log_entries(
+        filepath="server/api/reset.ts",
+        line_num=84,
+        line='console.error("[reset] failed", token);',
+    )
+
+    assert len(issues) == 1
+
+
 # ── _looks_like_non_secret_value heuristic ────────────────
 
 
