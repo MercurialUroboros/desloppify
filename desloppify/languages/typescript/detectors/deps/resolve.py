@@ -308,11 +308,15 @@ def resolve_module(
     *,
     source_root: Path | None = None,
     type_only: bool = False,
+    deferred: bool = False,
 ) -> None:
     """Resolve an import specifier and add edges to the graph.
 
     A ``type_only`` edge is also recorded in ``type_imports`` unless the same
     target is already a value import; a value edge always clears it there.
+    A ``deferred`` edge (a literal ``import('...')`` expression) is recorded in
+    ``deferred_imports`` the same way: it counts as an importer but is loaded
+    at call time, so cycle detection ignores it.
     """
     target: Path | None = None
     if module_path.startswith("."):
@@ -338,6 +342,11 @@ def resolve_module(
                 type_imports.discard(target_resolved)
             elif target_resolved not in node["imports"]:
                 type_imports.add(target_resolved)
+            deferred_imports = node.setdefault("deferred_imports", set())
+            if not deferred:
+                deferred_imports.discard(target_resolved)
+            elif target_resolved not in node["imports"]:
+                deferred_imports.add(target_resolved)
             node["imports"].add(target_resolved)
             graph[target_resolved]["importers"].add(source_resolved)
             break

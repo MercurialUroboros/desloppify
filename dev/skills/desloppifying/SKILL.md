@@ -42,6 +42,13 @@ cd ~/Desktop/persona/desloppify
 
 Then rescan the project and compare a few findings against their source lines before trusting a new rule. Commit there on `main`.
 
+## Won't-fix bookkeeping
+
+- **A won't-fix only resurfaces while the scan still reports it.** Every scan ages each live won't-fix by one; at `wontfix_decay_scans` (default 20) it comes back as `stale_wontfix`. A session that rescans often triggers waves, so batch fixes and rescan once per batch, not per item.
+- **A won't-fix the detector stops reporting stays won't-fix** (upstream keeps the human decision) and still counts in strict, as does `auto_resolved`. That is upstream's accounting, not a detector bug: do not "fix" it by rewriting state or scoring.
+- **Re-triage waves go to Opus reviewers in chunks of ~40**, read-only, writing `{original_id, verdict, note}`. The keep rules that recur: string or ISO-date sorts, `async` kept for a Promise return with an early plain value, `!` after INSERT ... RETURNING, deliberate log-and-continue in best-effort paths and CLI scripts, framework barrels and entry points, coverage on UI, scripts, dev fakes and thin routes whose rule is tested elsewhere. Then `plan reopen` + `plan skip --permanent` per keep (as a background python script), resolve the `stale_wontfix` items, and fix the rest. About 5% come back as real fixes.
+- **Owner decisions are not won't-fix.** Ask, then implement the answer; park them only with a note saying so.
+
 ## Red flags
 
 - Resolving an item without a diff, or editing `.desloppify/state.json` by hand.

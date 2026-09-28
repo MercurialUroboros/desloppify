@@ -46,7 +46,9 @@ _IMPORT_SPEC_RE = re.compile(
     r"""(?:from\s+|import\s+)(?:type\s+)?['"]([^'"]+)['"]"""
 )
 _DENO_EXTERNAL_PREFIXES = ("http://", "https://", "npm:", "jsr:")
-_IMPORT_GREP_PATTERN = r"""(?:\bfrom\s+['"]|\bimport\s+['"])"""
+_IMPORT_GREP_PATTERN = r"""(?:\bfrom\s+['"]|\bimport\s+['"]|\bimport\s*\(\s*['"])"""
+# A literal dynamic import, ``import('./x')``: an edge loaded at call time.
+_DYNAMIC_IMPORT_RE = re.compile(r"""\bimport\s*\(\s*['"]([^'"]+)['"]\s*\)""")
 # One whole `import ... from '...'` / `export ... from '...'` statement, possibly
 # spanning lines. The clause admits only binding syntax and comments, so a
 # match never starts inside an unrelated statement.
@@ -68,6 +70,11 @@ _TYPE_BINDING_RE = re.compile(r"type\s+(?!as\s+[\w$]+$)[\w$]")
 def _extract_module_specifiers(line: str) -> list[str]:
     """Extract static import/export module specifiers from one source line."""
     return [match.group(1) for match in _IMPORT_SPEC_RE.finditer(line)]
+
+
+def _extract_dynamic_specifiers(line: str) -> list[str]:
+    """Extract literal ``import('...')`` specifiers from one source line."""
+    return [match.group(1) for match in _DYNAMIC_IMPORT_RE.finditer(line)]
 
 
 def _is_type_only_clause(clause: str) -> bool:
@@ -113,6 +120,7 @@ def build_dep_graph(
             "importers": set(),
             "external_imports": set(),
             "type_imports": set(),
+            "deferred_imports": set(),
         }
     )
     project_root = get_project_root()
@@ -173,6 +181,20 @@ def _add_static_import_edges(
                 source_resolved,
                 source_root=project_root,
                 type_only=module_path in type_only,
+            )
+        for module_path in _extract_dynamic_specifiers(content):
+            if module_path.startswith(_DENO_EXTERNAL_PREFIXES):
+                graph[source_resolved]["external_imports"].add(module_path)
+                continue
+            _resolve_module(
+                module_path,
+                filepath,
+                tsconfig_paths,
+                tsconfig_root,
+                graph,
+                source_resolved,
+                source_root=project_root,
+                deferred=True,
             )
 
 
