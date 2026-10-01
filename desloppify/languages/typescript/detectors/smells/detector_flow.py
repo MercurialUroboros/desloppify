@@ -145,7 +145,9 @@ def _detect_high_cyclomatic_complexity(ctx, smell_counts: dict[str, list[dict]])
     """Flag functions with cyclomatic complexity > 15."""
     for index, line in enumerate(ctx.lines):
         name = _find_function_start(line, ctx.lines[index + 1 : index + 3])
-        if not name:
+        # A composable or hook body is the sum of its handlers; each named
+        # handler inside it is measured on its own.
+        if not name or _HOOK_NAME_RE.match(name):
             continue
         body = _extract_function_body(ctx.lines, index)
         if body is None:
