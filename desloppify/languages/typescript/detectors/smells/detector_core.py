@@ -39,7 +39,9 @@ _TS_BRANCH_PATTERNS = (
     re.compile(r"\bwhile\s*\("),
 )
 
-_OPERATOR_BRANCH_RE = re.compile(r"&&|\|\||\?(?!=)")
+# `??` is one branch, a ternary `?` is one; `?.` access and the `?` of an
+# optional parameter or member (`x?: T`, `[a?, b?]`) are not paths to follow.
+_OPERATOR_BRANCH_RE = re.compile(r"&&|\|\||\?\?|(?<!\?)\?(?![?.:=,)\]])")
 
 _IF_START = re.compile(r"(?:else\s+)?if\s*\(")
 _SINGLE_EMPTY_IF = re.compile(r"(?:else\s+)?if\s*\([^)]*\)\s*\{\s*\}\s*$")

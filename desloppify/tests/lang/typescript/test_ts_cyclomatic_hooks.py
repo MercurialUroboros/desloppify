@@ -32,3 +32,16 @@ def test_handler_inside_a_composable_is_still_measured():
     inner = "  function pick(a: number) " + _BODY.replace("\n", "\n  ")
     source = "export function usePlanOptions() {\n" + inner + "\n  return { pick }\n}\n"
     assert len(_smells(source)) == 1
+
+
+def test_optional_chaining_and_nullish_defaults_are_not_a_branch_each():
+    from desloppify.languages.typescript.detectors.smells.detector_core import (
+        _compute_ts_cyclomatic_complexity,
+    )
+
+    straight = "{\n  a.value = data.value?.board?.cells ?? null\n}\n"
+    assert _compute_ts_cyclomatic_complexity(straight) == 2
+    typed = "{\n  function f(x?: number, y?: string) { return x }\n}\n"
+    assert _compute_ts_cyclomatic_complexity(typed) == 1
+    ternary = "{\n  return a ? b : c && d\n}\n"
+    assert _compute_ts_cyclomatic_complexity(ternary) == 3
