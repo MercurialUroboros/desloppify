@@ -181,3 +181,35 @@ def test_phase_coupling_passes_orphaned_options(monkeypatch, tmp_path: Path):
 
     # Extensions were correctly passed from lang config
     assert captured["extensions"] == [".ts", ".tsx"]
+
+
+def test_single_use_skips_assets_and_framework_auto_imports(monkeypatch, tmp_path):
+    """An icon is not an abstraction, and an auto-imported file has unseen importers."""
+
+    class _Lang:
+        extensions = [".ts", ".vue"]
+        barrel_names = set()
+        zone_map = None
+        get_area = None
+
+    entries = [
+        {"file": "app/assets/icons/a.svg", "loc": 30, "sole_importer": "app/constants/icons.ts"},
+        {"file": "app/composables/useThing.ts", "loc": 30, "sole_importer": "app/pages/x.vue"},
+        {"file": "server/lib/thing.ts", "loc": 30, "sole_importer": "server/api/x.get.ts"},
+    ]
+    monkeypatch.setattr(
+        phases_coupling_mod.single_use_detector_mod,
+        "detect_single_use_abstractions",
+        lambda _path, _graph, barrel_names: (list(entries), len(entries)),
+    )
+    monkeypatch.setattr(
+        phases_coupling_mod,
+        "framework_convention_entry",
+        lambda _path, _lang: lambda rel_path: rel_path.startswith("app/composables/"),
+    )
+
+    issues, kept, candidates = phases_coupling_mod.detect_single_use(tmp_path, {}, _Lang())
+
+    assert [e["file"] for e in kept] == ["server/lib/thing.ts"]
+    assert [i["file"] for i in issues] == ["server/lib/thing.ts"]
+    assert candidates == 3

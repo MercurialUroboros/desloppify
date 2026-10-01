@@ -29,6 +29,27 @@ from desloppify.languages.typescript.phases_config import TS_SKIP_DIRS, TS_SKIP_
 from desloppify.state_io import Issue
 
 
+def _importer_count_is_trustworthy(
+    path: Path, entries: list[dict], lang: LangRuntimeContract
+) -> list[dict]:
+    """Keep the entries whose single importer says something about the file.
+
+    An asset (an icon, an image) is not an abstraction to inline, and a file a
+    framework auto-imports by location has importers the graph cannot see.
+    """
+    source_suffixes = set(getattr(lang, "extensions", None) or ())
+    convention_entry = framework_convention_entry(path, lang)
+    kept = []
+    for entry in entries:
+        rel_file = rel(entry["file"])
+        if source_suffixes and Path(rel_file).suffix not in source_suffixes:
+            continue
+        if convention_entry is not None and convention_entry(rel_file):
+            continue
+        kept.append(entry)
+    return kept
+
+
 def detect_single_use(
     path: Path, graph: dict, lang: LangRuntimeContract
 ) -> tuple[list[Issue], list[dict], int]:
@@ -36,6 +57,7 @@ def detect_single_use(
     single_entries, single_candidates = single_use_detector_mod.detect_single_use_abstractions(
         path, graph, barrel_names=lang.barrel_names
     )
+    single_entries = _importer_count_is_trustworthy(path, single_entries, lang)
     single_entries = filter_entries(lang.zone_map, single_entries, "single_use")
     issues = make_single_use_issues(
         single_entries, lang.get_area, skip_dir_names={"commands"}, stderr_fn=log

@@ -61,7 +61,8 @@ SNAPSHOT_PATTERNS = [
         r"toMatchInlineSnapshot",
     ]
 ]
-TEST_FUNCTION_RE = re.compile(r"""(?:it|test)\s*\(\s*['\"]""")
+# The lookbehind keeps `sql.split('...')` and `/re/.test('...')` from counting as tests.
+TEST_FUNCTION_RE = re.compile(r"""(?<![\w.$])(?:it|test)\s*\(\s*['\"]""")
 PLACEHOLDER_LABEL_PATTERNS = [
     re.compile(p, re.IGNORECASE)
     for p in [
