@@ -418,3 +418,56 @@ def test_detect_smells_only_counts_runtime_source_files(tmp_path):
 
     assert entries == []
     assert total_files == 1
+
+
+_DEMO_MANIFEST = '[package]\nname = "demo"\nversion = "0.1.0"\nedition = "2021"\n'
+
+
+def _smell_lines(tmp_path: Path, source: str, smell_id: str) -> list[int]:
+    _write(tmp_path, "Cargo.toml", _DEMO_MANIFEST)
+    _write(tmp_path, "src/lib.rs", source)
+    with runtime_scope(RuntimeContext(project_root=tmp_path)):
+        entries, _ = detect_smells(tmp_path)
+    return [
+        match["line"]
+        for entry in entries
+        if entry["id"] == smell_id
+        for match in entry["matches"]
+    ]
+
+
+def test_detect_smells_reports_eager_fallback_allocation(tmp_path):
+    source = (
+        "fn name(x: Option<String>) -> String {\n"
+        '    x.unwrap_or(format!("anon-{}", ID))\n'
+        "}\n"
+        "fn code(x: Option<u8>) -> Result<u8, Error> {\n"
+        "    x.ok_or(Error::Missing)\n"
+        "}\n"
+    )
+    assert _smell_lines(tmp_path, source, "eager_fallback_alloc") == [2]
+
+
+def test_detect_smells_ignores_lazy_fallback(tmp_path):
+    source = 'fn name(x: Option<String>) -> String {\n    x.unwrap_or_else(|| format!("anon"))\n}\n'
+    assert _smell_lines(tmp_path, source, "eager_fallback_alloc") == []
+
+
+def test_detect_smells_reports_todo_without_issue_reference(tmp_path):
+    source = (
+        "// TODO: tidy this up\n"
+        "// TODO(#42): remove after the upstream fix\n"
+        'const HINT: &str = "// TODO not a comment";\n'
+    )
+    assert _smell_lines(tmp_path, source, "untracked_todo") == [1]
+
+
+def test_detect_smells_skips_inline_test_modules(tmp_path):
+    source = (
+        "pub fn run() {}\n"
+        "#[cfg(test)]\nmod tests {\n"
+        "    #[test]\n    fn waits() {\n        std::thread::sleep(DELAY);\n        dbg!(1);\n    }\n"
+        "}\n"
+    )
+    assert _smell_lines(tmp_path, source, "thread_sleep") == []
+    assert _smell_lines(tmp_path, source, "dbg_macro") == []

@@ -26,6 +26,7 @@ from desloppify.languages._framework.generic_parts.tool_runner import ToolRunRes
 from desloppify.languages._framework.generic_parts.tool_runner import run_tool_result
 from desloppify.languages.rust.detectors import (
     detect_async_locking,
+    detect_async_runtime,
     detect_doctest_hygiene,
     detect_drop_safety,
     detect_error_boundaries,
@@ -34,6 +35,7 @@ from desloppify.languages.rust.detectors import (
     detect_import_hygiene,
     detect_public_api_conventions,
     detect_smells,
+    detect_test_hygiene,
     detect_thread_safety_contracts,
     detect_unsafe_api_usage,
 )
@@ -222,6 +224,14 @@ cmd_rust_async_locking = _make_entry_detect_command(
     "Rust async locking",
     detect_async_locking,
 )
+cmd_rust_async_runtime = _make_entry_detect_command(
+    "Rust async runtime",
+    detect_async_runtime,
+)
+cmd_rust_test_hygiene = _make_entry_detect_command(
+    "Rust test hygiene",
+    detect_test_hygiene,
+)
 cmd_rust_drop_safety = _make_entry_detect_command(
     "Rust drop safety",
     detect_drop_safety,
@@ -255,8 +265,10 @@ def get_detect_commands() -> dict[str, DetectCommand]:
             "rust_future_proofing": cmd_rust_future_proofing,
             "rust_thread_safety": cmd_rust_thread_safety,
             "rust_async_locking": cmd_rust_async_locking,
+            "rust_async_runtime": cmd_rust_async_runtime,
             "rust_drop_safety": cmd_rust_drop_safety,
             "rust_unsafe_api": cmd_rust_unsafe_api,
+            "rust_test_hygiene": cmd_rust_test_hygiene,
         },
     )
 
@@ -273,12 +285,14 @@ __all__ = [
     "cmd_smells",
     "cmd_rust_api_convention",
     "cmd_rust_async_locking",
+    "cmd_rust_async_runtime",
     "cmd_rust_doctest",
     "cmd_rust_drop_safety",
     "cmd_rust_error_boundary",
     "cmd_rust_feature_hygiene",
     "cmd_rust_future_proofing",
     "cmd_rust_import_hygiene",
+    "cmd_rust_test_hygiene",
     "cmd_rust_thread_safety",
     "cmd_rust_unsafe_api",
     "cmd_rustdoc_warning",

@@ -15,6 +15,7 @@ from desloppify.languages.rust.support import (
 
 from ._shared import (
     _UTF8_RATIONALE_RE,
+    _blank_inline_test_modules,
     _has_local_safety_rationale,
     _is_runtime_source_file,
     _line_number,
@@ -32,6 +33,9 @@ _UNSAFE_IMPL_RE = re.compile(r"\bunsafe\s+impl\b")
 _UNSAFE_SMELL_ID = "undocumented_unsafe"
 _STRING_ERROR_SMELL_ID = "string_error"
 _RESULT_RE = re.compile(r"\bResult\s*<")
+_TODO_SMELL_ID = "untracked_todo"
+_TODO_COMMENT_RE = re.compile(r"//.*\b(?:TODO|FIXME)\b")
+_ISSUE_REFERENCE_RE = re.compile(r"(?i)#\d+|https?://|\b[A-Z][A-Z0-9]+-\d+\b|\bissues?\b")
 
 
 def detect_smells(path: Path) -> tuple[list[dict], int]:
@@ -51,9 +55,12 @@ def detect_smells(path: Path) -> tuple[list[dict], int]:
             continue
         stripped = strip_rust_comments(content, preserve_lines=True)
         normalized_file = rel(absolute)
+        # Inline `#[cfg(test)]` modules are test code: rust_test_hygiene owns them.
+        runtime_code = _blank_inline_test_modules(stripped)
 
-        _scan_pattern_smells(normalized_file, content, stripped, smell_counts)
-        _detect_string_error_results(normalized_file, content, stripped, smell_counts)
+        _scan_pattern_smells(normalized_file, content, runtime_code, smell_counts)
+        _detect_string_error_results(normalized_file, content, runtime_code, smell_counts)
+        _detect_untracked_todos(normalized_file, content, stripped, smell_counts)
         _detect_allow_attrs(normalized_file, content, stripped, smell_counts)
         _detect_undocumented_unsafe(normalized_file, content, stripped, smell_counts)
 
@@ -122,6 +129,30 @@ def _detect_string_error_results(
                     "content": _line_preview(raw_content, line),
                 }
             )
+
+
+def _detect_untracked_todos(
+    filepath: str,
+    raw_content: str,
+    stripped_content: str,
+    smell_counts: dict[str, list[dict]],
+) -> None:
+    if _TODO_SMELL_ID not in smell_counts:
+        return
+    stripped_lines = stripped_content.splitlines()
+    for index, raw_line in enumerate(raw_content.splitlines()):
+        # Only text the comment stripper removed is a comment (not a string literal).
+        code = stripped_lines[index] if index < len(stripped_lines) else ""
+        comment = raw_line[len(code.rstrip()) :] if raw_line.startswith(code.rstrip()) else ""
+        if not _TODO_COMMENT_RE.search(comment) or _ISSUE_REFERENCE_RE.search(comment):
+            continue
+        smell_counts[_TODO_SMELL_ID].append(
+            {
+                "file": filepath,
+                "line": index + 1,
+                "content": raw_line.strip()[:100],
+            }
+        )
 
 
 def _extract_angle_content(text: str, open_index: int) -> tuple[str, int] | None:

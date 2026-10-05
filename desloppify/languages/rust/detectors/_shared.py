@@ -801,6 +801,33 @@ def _scope_exits_before(text: str, acquire_depth: int) -> bool:
     return False
 
 
+def _inline_test_module_line_ranges(content: str) -> list[tuple[int, int]]:
+    """Return 1-based line ranges of inline `#[cfg(test)] mod ... { }` blocks."""
+    return rust_tools._inline_cfg_test_module_line_ranges(content)
+
+
+def _blank_line_ranges(content: str, ranges: list[tuple[int, int]]) -> str:
+    """Blank the given 1-based line ranges while keeping the line layout."""
+    if not ranges:
+        return content
+    lines = content.split("\n")
+    for start, end in ranges:
+        for index in range(start - 1, min(end, len(lines))):
+            lines[index] = ""
+    return "\n".join(lines)
+
+
+def _blank_inline_test_modules(content: str) -> str:
+    """Drop inline test modules so runtime rules do not read test code."""
+    return _blank_line_ranges(content, _inline_test_module_line_ranges(content))
+
+
+def _blank_span(text: str, start: int, end: int) -> str:
+    """Replace `text[start:end]` with spaces, keeping newlines and offsets."""
+    blanked = "".join("\n" if char == "\n" else " " for char in text[start:end])
+    return text[:start] + blanked + text[end:]
+
+
 def _entry(
     filepath: Path,
     *,

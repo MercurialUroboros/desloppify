@@ -86,6 +86,8 @@ Files in this folder:
   - `rust_future_proofing`
   - `rust_thread_safety`
   - `rust_async_locking`
+  - `rust_async_runtime`
+  - `rust_test_hygiene`
   - `rust_drop_safety`
   - `rust_unsafe_api`
 
@@ -161,6 +163,16 @@ Rust detectors are split by responsibility.
 
 - Cargo feature hygiene
 - README / inline doctest policy
+
+`detectors/async_runtime.py`:
+
+- blocking calls inside `async fn` (`std::thread::sleep`, `block_on`, std file/network I/O), ignoring closures handed to `spawn_blocking`/`block_in_place`/`thread::spawn`
+- `for` loops that spawn a detached Tokio task per item with no `Semaphore`/`JoinSet`/`buffer_unordered` in the function
+
+`detectors/test_hygiene.py`:
+
+- runs on `tests/` files and inline `#[cfg(test)]` modules only
+- sleeps in tests (unless the Tokio clock is paused), bare `#[ignore]`, bare `#[should_panic]`, `assert!(a == b)`
 
 `detectors/safety.py`:
 
@@ -333,6 +345,8 @@ Current custom smells:
 
 - `undocumented_unsafe`
 - `allow_attr`
+- `string_error`
+- `untracked_todo`
 
 Current catalog-backed smells include:
 
@@ -347,8 +361,11 @@ Current catalog-backed smells include:
 - `process_exit`
 - `dbg_macro`
 - `thread_sleep`
+- `eager_fallback_alloc`
 
 Important implementation detail:
+
+Regex-backed smells skip inline `#[cfg(test)]` modules; test code belongs to `rust_test_hygiene`.
 
 Regex-based smells rely on Rust comment stripping from `support.py`. That stripper intentionally preserves line counts while removing doc comments and regular comments so smell line numbers stay stable.
 
@@ -377,6 +394,8 @@ Current Rust auto-fixers are intentionally narrow:
 Rust does not currently have broad AST rewrite fixers.
 
 ## Subjective review
+
+`REVIEW_GUIDANCE` in `review.py` is distilled from three Claude Code skills, not from memory: `rust-best-practices` (Apollo GraphQL's handbook), `rust-async-patterns` and `rust-testing`. It carries `patterns`, `async`, `testing`, `naming` and `refactoring` lists; rules that Clippy (pedantic, `unwrap_used`, `expect_used`) or a `rust_*` detector already reports are left out. When a skill changes, update the guidance and the detectors together.
 
 Rust review guidance focuses on:
 
@@ -408,6 +427,8 @@ If you want to add new Rust behavior, use this order of preference.
 - `api.py`
 - `cargo_policy.py`
 - `safety.py`
+- `async_runtime.py`
+- `test_hygiene.py`
 
 4. Add shared parsing helpers to `detectors/_shared.py` or `support.py`
 - prefer `_shared.py` for detector-only helpers

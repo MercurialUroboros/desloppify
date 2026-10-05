@@ -31,6 +31,7 @@ from desloppify.languages._framework.generic_parts.tool_runner import ToolRunRes
 from desloppify.languages._framework.generic_parts.tool_runner import run_tool_result
 from desloppify.languages.rust.detectors import (
     detect_async_locking,
+    detect_async_runtime,
     detect_doctest_hygiene,
     detect_drop_safety,
     detect_error_boundaries,
@@ -38,6 +39,7 @@ from desloppify.languages.rust.detectors import (
     detect_future_proofing,
     detect_import_hygiene,
     detect_public_api_conventions,
+    detect_test_hygiene,
     detect_thread_safety_contracts,
     detect_unsafe_api_usage,
 )
@@ -175,8 +177,10 @@ def phase_custom_policy(
         ("rust_future_proofing", detect_future_proofing),
         ("rust_thread_safety", detect_thread_safety_contracts),
         ("rust_async_locking", detect_async_locking),
+        ("rust_async_runtime", detect_async_runtime),
         ("rust_drop_safety", detect_drop_safety),
         ("rust_unsafe_api", detect_unsafe_api_usage),
+        ("rust_test_hygiene", detect_test_hygiene),
     )
     results: list[Issue] = []
     counts: dict[str, int] = {}

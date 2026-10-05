@@ -64,6 +64,21 @@ RUST_SMELL_CHECKS = [
         "severity": "medium",
     },
     {
+        "id": "eager_fallback_alloc",
+        "label": "Fallback value allocated eagerly (use the lazy `_else` variant)",
+        "pattern": (
+            r"\.\s*(?:unwrap_or|ok_or|map_or)\s*\(\s*"
+            r"(?:format!\s*\(|String::from\s*\(|vec!\s*\[|[^()\n]*\.to_(?:string|owned)\(\)\s*[,)])"
+        ),
+        "severity": "low",
+    },
+    {
+        "id": "untracked_todo",
+        "label": "TODO/FIXME comment without a linked issue",
+        "pattern": None,
+        "severity": "low",
+    },
+    {
         "id": "allow_attr",
         "label": "Allow attribute in production code",
         "pattern": None,

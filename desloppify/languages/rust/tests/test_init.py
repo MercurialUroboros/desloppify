@@ -30,6 +30,8 @@ def test_config_detect_commands_populated():
         "rust_future_proofing",
         "rust_thread_safety",
         "rust_async_locking",
+        "rust_async_runtime",
+        "rust_test_hygiene",
         "rust_drop_safety",
         "rust_unsafe_api",
     ):

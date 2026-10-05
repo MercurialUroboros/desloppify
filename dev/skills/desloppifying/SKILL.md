@@ -7,14 +7,14 @@ description: Use when asked to run desloppify, raise a codebase's health score, 
 
 ## Overview
 
-desloppify scans a codebase, scores it, and hands out a work queue. It detects the language and frameworks itself (Nuxt, Vue, Next.js, Python, ...), so this skill is not framework-specific: it keeps you on the local build, routes refactoring to the matching framework skills, and keeps the score honest.
+desloppify scans a codebase, scores it, and hands out a work queue. It detects the language and frameworks itself (Nuxt, Vue, Next.js, Python, Rust, ...), so this skill is not framework-specific: it keeps you on the local build, routes refactoring to the matching framework skills, and keeps the score honest.
 
 **The local build is the only desloppify.** `command -v desloppify` must resolve to `~/.local/bin/desloppify`, a symlink into `~/Desktop/persona/desloppify/.venv`. Never `pip install`, `uvx`, or `desloppify update-skill` (it downloads docs from the upstream repo). Code changes in that checkout apply immediately.
 
 ## Workflow
 
 1. **Follow the project's own skill doc** for the phases: `.claude/skills/desloppify/SKILL.md` in the project (scan and review, plan, execute). If it is missing, read `~/Desktop/persona/desloppify/docs/SKILL.md` and `docs/CLAUDE.md` instead. Run commands from inside the project so state lands in its `.desloppify/`.
-2. **Load the framework skills before refactoring.** Decide from the manifest: `package.json` dependencies or `pyproject.toml`. (`.desloppify/query.json` is rewritten by every command; only right after `desloppify review --prepare` does it carry `frameworks` and `lang_guidance`, with a `refactoring` list.) Then load:
+2. **Load the framework skills before refactoring.** Decide from the manifest: `package.json` dependencies, `pyproject.toml` or `Cargo.toml`. (`.desloppify/query.json` is rewritten by every command; only right after `desloppify review --prepare` does it carry `frameworks` and `lang_guidance`, with a `refactoring` list.) Then load:
 
 | Detected | Load |
 |---|---|
@@ -23,6 +23,7 @@ desloppify scans a codebase, scores it, and hands out a work queue. It detects t
 | drizzle, supabase | `drizzle`, `supabase-postgres-best-practices` |
 | typescript | `typescript-advanced-types` for type-level findings, `coding-standards` for naming |
 | svelte | `svelte-code-writer` |
+| rust (`Cargo.toml`) | `rust-best-practices`; `rust-async-patterns` when `tokio`/`async-std`/`futures` is a dependency or findings are `rust_async_*`; `rust-testing` for `rust_test_hygiene` and `test_coverage` findings |
 | any | `test-driven-development` for fixes that change behavior, `systematic-debugging` for bug-class findings, `verification-before-completion` before resolving |
 
 3. **Verify a finding before touching code.** `desloppify show <id>`, then open the file at the reported line. Detectors are heuristics: if the finding is wrong, `desloppify plan skip <id> --false-positive --note "<why>"`. If one detector is wrong across many files, fix the detector in `~/Desktop/persona/desloppify` (see below) instead of skipping dozens of items.
